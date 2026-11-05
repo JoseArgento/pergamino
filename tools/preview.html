@@ -1,0 +1,52 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Pergamino preview</title>
+<style>
+@font-face{font-family:Alegreya;src:url(../Libs/Pergamino/Fonts/Alegreya-Regular.ttf)}
+@font-face{font-family:Alegreya;font-weight:600;src:url(../Libs/Pergamino/Fonts/Alegreya-SemiBold.ttf)}
+@font-face{font-family:Alegreya;font-style:italic;src:url(../Libs/Pergamino/Fonts/Alegreya-Italic.ttf)}
+@font-face{font-family:Cinzel;font-weight:600;src:url(../Libs/Pergamino/Fonts/Cinzel-SemiBold.ttf)}
+@font-face{font-family:Cinzel;font-weight:700;src:url(../Libs/Pergamino/Fonts/Cinzel-Bold.ttf)}
+body{margin:0;background:#2b3a2a url() ;height:720px;display:grid;place-items:center;font-family:Alegreya;color:#3a2313}
+/* the book: 860x540. leather all around, two pages inset 18px, spine shadow in the middle */
+.book{position:relative;width:860px;height:540px;background:url(preview-media/leather.png) center/cover;border-radius:6px;box-shadow:0 18px 40px rgba(0,0,0,.6)}
+.page{position:absolute;top:18px;bottom:18px;width:406px;background:url(preview-media/page.png) center/cover}
+.page.l{left:18px}.page.r{right:18px;transform:scaleX(-1)}
+.spine{position:absolute;top:18px;bottom:18px;left:50%;width:96px;margin-left:-48px;background:url(preview-media/spine.png) center/100% 100%}
+.content{position:absolute;top:18px;bottom:18px;width:406px;padding:22px 22px 18px;box-sizing:border-box;font-size:14px;line-height:1.35}
+.content.l{left:18px}.content.r{right:18px}
+.title{position:absolute;top:-12px;left:50%;width:360px;height:44px;margin-left:-180px;background:url(preview-media/title.png) center/100% 100%;display:grid;place-items:center;font:700 16px Cinzel;color:#d8a845;letter-spacing:.06em;text-shadow:0 1px 0 #3a0c06}
+.seal{position:absolute;top:-10px;right:-10px;width:40px;height:40px;background:url(preview-media/seal.png) center/contain}
+.tabs{position:absolute;right:-92px;top:70px;display:grid;gap:6px}
+.tab{width:128px;height:30px;background:url(preview-media/ribbon.png) 0 0/112px 60px;display:flex;align-items:center;padding-left:16px;box-sizing:border-box;font:600 11px Cinzel;color:#f6e8c6;letter-spacing:.04em;margin-left:14px;text-shadow:0 1px 0 #3a0c06}
+.tab.on{background-position:0 -30px;color:#3a2313;width:142px;margin-left:0;text-shadow:none}
+h2{font:600 13px Cinzel;color:#8f2a1d;margin:0 0 8px;letter-spacing:.06em}
+.rule{border:0;border-top:1px solid rgba(58,35,19,.35);margin:6px 0 10px}
+.row{display:flex;justify-content:space-between;padding:5px 2px;border-bottom:1px dotted rgba(58,35,19,.35)}
+.row .k{font:12px Alegreya;color:#6c4e31}
+.row.sel{background:rgba(216,168,69,.28)}
+.btn{display:inline-block;padding:4px 14px;background:url(preview-media/leather.png) center/200px;border:1px solid #94701f;box-shadow:inset 0 0 0 1px #d8a845;color:#d8a845;font:600 11px Cinzel;letter-spacing:.05em;border-radius:3px}
+.chip{display:inline-block;padding:1px 10px;border:1.5px solid #3a2313;border-radius:999px;font:600 11px Cinzel;color:#3a2313;margin-right:4px}
+.chip.on{background:#3a2313;color:#f2e3c0}
+.edit{border:0;border-bottom:1px solid #3a2313;background:transparent;font:14px Alegreya;color:#3a2313;width:220px;padding:2px 0}
+.chk{display:inline-flex;align-items:center;gap:6px;font-size:13px}.chk i{width:14px;height:14px;border:2px solid #3a2313;border-radius:2px}
+.tag{display:inline-block;padding:0 8px;border-radius:999px;font:600 10px Cinzel;color:#f2e3c0;background:#94701f}
+.muted{color:#6c4e31;font-size:12px}
+</style></head><body>
+<div class="book">
+  <div class="page l"></div><div class="page r"></div><div class="spine"></div>
+  <div class="title">BITÁCORA</div><div class="seal"></div>
+  <div class="tabs"><div class="tab on">Libreta</div><div class="tab">Diario</div><div class="tab">Álbum</div><div class="tab">Recordatorios</div><div class="tab">Progreso</div><div class="tab">Guild</div></div>
+  <div class="content l">
+    <div style="display:flex;justify-content:space-between;align-items:center"><div><span class="chip on">Todas</span><span class="chip">General</span><span class="chip">Onyxia</span><span class="chip">+</span></div><input class="edit" style="width:110px" placeholder="Buscar"></div>
+    <hr class="rule">
+    <div class="row sel"><div>Pasos del amuleto<br><span class="k">@Forjaz · Misión en Ventormenta, hablar…</span></div><span class="tag">fijada</span></div>
+    <div class="row"><div>Recetas a comprar<br><span class="k">En Forjaz, el vendedor de la zona de los enanos</span></div></div>
+    <div class="row"><div>Hogger<br><span class="k">Al sur, cerca del río. Ir con grupo.</span></div></div>
+    <div style="position:absolute;bottom:18px;left:22px"><span class="btn">Nueva nota</span></div>
+  </div>
+  <div class="content r">
+    <input class="edit" value="Pasos del amuleto" style="font:600 18px Alegreya;width:100%">
+    <div class="muted" style="margin:6px 0 10px">Todos los personajes · pegada a Forjaz</div>
+    <div style="height:230px;font-size:14px">1. Misión en Ventormenta<br>2. Hablar con Marshal Windsor<br>3. [Dragonkin Menace]<br><br><i>Shift-clic en ítems, misiones o logros para pegar links.</i></div>
+    <div style="position:absolute;bottom:18px;left:22px;right:22px;display:flex;gap:8px;justify-content:space-between"><span class="chk"><i></i> Solo este personaje</span><span><span class="btn">Fijar</span> <span class="btn">Pegar a…</span> <span class="btn">…</span></span></div>
+  </div>
+</div></body></html>
