@@ -12,6 +12,8 @@ WoW client loads from an addon folder. Deterministic: the same seed gives the sa
   seal.tga          64x64    a wax seal (the close button)
   check.tga         64x32    an ink box (left half) and its tick (right half)
   pill.tga          64x32    a white rounded pill, tinted in-game for tags and chips
+  ring.tga          64x64    the leather ring with a gold fillet around the minimap button (transparent middle)
+  mask.tga          64x64    a white disc: the mask that rounds the icon inside the minimap button
 """
 
 import math
@@ -40,12 +42,17 @@ def noise(w: int, h: int, scale: int, seed: int) -> Image.Image:
 def fractal(w: int, h: int, seed: int) -> Image.Image:
     out = Image.new("L", (w, h), 0)
     for i, (s, weight) in enumerate([(64, 0.45), (16, 0.3), (4, 0.18), (1, 0.07)]):
-        out = ImageChops.add(out, noise(w, h, s, seed + i).point(lambda v, k=weight: int(v * k)))
+        out = ImageChops.add(
+            out, noise(w, h, s, seed + i).point(lambda v, k=weight: int(v * k))
+        )
     return out
 
 
 def tint(gray: Image.Image, dark: tuple, light: tuple) -> Image.Image:
-    bands = [gray.point(lambda v, i=i: int(dark[i] + (light[i] - dark[i]) * v / 255)) for i in range(3)]
+    bands = [
+        gray.point(lambda v, i=i: int(dark[i] + (light[i] - dark[i]) * v / 255))
+        for i in range(3)
+    ]
     return Image.merge("RGB", bands)
 
 
@@ -56,7 +63,9 @@ def vignette(w: int, h: int, start: float, strength: float) -> Image.Image:
     for y in range(h):
         for x in range(w):
             d = math.hypot((x - cx) / cx, (y - cy) / cy) / math.sqrt(2)
-            px[x, y] = int(255 * min(1.0, max(0.0, (d - start) / (1 - start))) ** 1.5 * strength)
+            px[x, y] = int(
+                255 * min(1.0, max(0.0, (d - start) / (1 - start))) ** 1.5 * strength
+            )
     return v
 
 
@@ -69,7 +78,11 @@ def page() -> Image.Image:
     for _ in range(70):
         x, y = rnd.randint(0, size), rnd.randint(0, size)
         length, angle = rnd.randint(6, 26), rnd.uniform(0, math.pi)
-        d.line((x, y, x + length * math.cos(angle), y + length * math.sin(angle)), fill=(204, 182, 138), width=1)
+        d.line(
+            (x, y, x + length * math.cos(angle), y + length * math.sin(angle)),
+            fill=(204, 182, 138),
+            width=1,
+        )
     paper = paper.filter(ImageFilter.GaussianBlur(0.4))
     # darker, slightly burnt edges; the inner (spine) edge is the left one and stays lighter
     edge = Image.new("L", (size, size), 0)
@@ -89,7 +102,9 @@ def leather() -> Image.Image:
     skin = tint(fractal(size, size, 41), LEATHER_DARK, LEATHER_LIGHT)
     grain = noise(size, size, 2, 99).point(lambda v: int(v * 0.12))
     skin = ImageChops.subtract(skin, Image.merge("RGB", (grain, grain, grain)))
-    skin = Image.composite(Image.new("RGB", (size, size), (18, 8, 4)), skin, vignette(size, size, 0.5, 0.7))
+    skin = Image.composite(
+        Image.new("RGB", (size, size), (18, 8, 4)), skin, vignette(size, size, 0.5, 0.7)
+    )
     return skin.filter(ImageFilter.SMOOTH).convert("RGBA")
 
 
@@ -123,12 +138,17 @@ def ribbon() -> Image.Image:
     """Two bookmarks, one per row: crimson, then gold. Straight left end (under the cover), swallowtail right end."""
     w, h = 256, 64
     out = Image.new("RGBA", (w, h * 2), (0, 0, 0, 0))
-    for row, (base, dark, edge) in enumerate([(CRIMSON, CRIMSON_DARK, GOLD_DARK), (GOLD, GOLD_DARK, CRIMSON_DARK)]):
+    for row, (base, dark, edge) in enumerate(
+        [(CRIMSON, CRIMSON_DARK, GOLD_DARK), (GOLD, GOLD_DARK, CRIMSON_DARK)]
+    ):
         body = cloth(w, h, base, dark, 5 + row).convert("RGBA")
         mask = Image.new("L", (w, h), 0)
         d = ImageDraw.Draw(mask)
         notch = 14
-        d.polygon([(0, 6), (w - 1, 6), (w - 1 - notch, h // 2), (w - 1, h - 7), (0, h - 7)], fill=255)
+        d.polygon(
+            [(0, 6), (w - 1, 6), (w - 1 - notch, h // 2), (w - 1, h - 7), (0, h - 7)],
+            fill=255,
+        )
         body.putalpha(mask)
         d2 = ImageDraw.Draw(body)
         d2.line([(0, 6), (w - 1, 6)], fill=edge + (255,), width=2)
@@ -143,7 +163,17 @@ def title() -> Image.Image:
     mask = Image.new("L", (w, h), 0)
     d = ImageDraw.Draw(mask)
     notch, pad = 18, 8
-    d.polygon([(0, pad), (w - 1, pad), (w - 1 - notch, h // 2), (w - 1, h - 1 - pad), (0, h - 1 - pad), (notch, h // 2)], fill=255)
+    d.polygon(
+        [
+            (0, pad),
+            (w - 1, pad),
+            (w - 1 - notch, h // 2),
+            (w - 1, h - 1 - pad),
+            (0, h - 1 - pad),
+            (notch, h // 2),
+        ],
+        fill=255,
+    )
     body.putalpha(mask)
     d2 = ImageDraw.Draw(body)
     for yy in (pad + 2, h - 3 - pad):
@@ -158,7 +188,11 @@ def seal() -> Image.Image:
     c, r = size / 2, 27
     d.ellipse((c - r, c - r, c + r, c + r), fill=(120, 30, 22, 255))
     d.ellipse((c - r + 3, c - r + 3, c + r - 3, c + r - 3), fill=(150, 42, 30, 255))
-    d.ellipse((c - r + 8, c - r + 8, c + r - 8, c + r - 8), outline=(100, 24, 18, 255), width=2)
+    d.ellipse(
+        (c - r + 8, c - r + 8, c + r - 8, c + r - 8),
+        outline=(100, 24, 18, 255),
+        width=2,
+    )
     # an eight-point star pressed into the wax
     pts = []
     for k in range(16):
@@ -167,7 +201,13 @@ def seal() -> Image.Image:
         pts.append((c + rr * math.sin(a), c - rr * math.cos(a)))
     d.polygon(pts, fill=(104, 26, 20, 255), outline=(176, 70, 50, 255))
     # a highlight
-    d.arc((c - r + 4, c - r + 4, c + r - 4, c + r - 4), 200, 260, fill=(200, 100, 80, 200), width=2)
+    d.arc(
+        (c - r + 4, c - r + 4, c + r - 4, c + r - 4),
+        200,
+        260,
+        fill=(200, 100, 80, 200),
+        width=2,
+    )
     return img.filter(ImageFilter.GaussianBlur(0.3))
 
 
@@ -183,15 +223,59 @@ def check() -> Image.Image:
 def pill() -> Image.Image:
     w, h = 64, 32
     img = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    ImageDraw.Draw(img).rounded_rectangle((1, 1, w - 2, h - 2), radius=14, fill=(255, 255, 255, 255))
+    ImageDraw.Draw(img).rounded_rectangle(
+        (1, 1, w - 2, h - 2), radius=14, fill=(255, 255, 255, 255)
+    )
+    return img
+
+
+def ring() -> Image.Image:
+    size = 64
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    c = size / 2
+    # leather band: the leather texture's grain cut into a ring
+    band = tint(fractal(size, size, 77), LEATHER_DARK, LEATHER_LIGHT).convert("RGBA")
+    hole = Image.new("L", (size, size), 0)
+    hd = ImageDraw.Draw(hole)
+    hd.ellipse((c - 31, c - 31, c + 31, c + 31), fill=255)
+    hd.ellipse((c - 22, c - 22, c + 22, c + 22), fill=0)
+    band.putalpha(hole)
+    img.alpha_composite(band)
+    d = ImageDraw.Draw(img)
+    # gold fillets at both edges of the band, a darker line outside them
+    d.ellipse((c - 31, c - 31, c + 31, c + 31), outline=(60, 30, 14, 255), width=1)
+    d.ellipse((c - 29, c - 29, c + 29, c + 29), outline=GOLD + (255,), width=2)
+    d.ellipse((c - 23, c - 23, c + 23, c + 23), outline=GOLD_DARK + (255,), width=2)
+    # a highlight on the upper left of the band
+    d.arc((c - 27, c - 27, c + 27, c + 27), 200, 260, fill=GOLD_LIGHT + (160,), width=2)
+    return img.filter(ImageFilter.GaussianBlur(0.3))
+
+
+def mask() -> Image.Image:
+    size = 64
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    ImageDraw.Draw(img).ellipse((9, 9, size - 10, size - 10), fill=(255, 255, 255, 255))
     return img
 
 
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
-    for name, make in [("page", page), ("leather", leather), ("spine", spine), ("ribbon", ribbon), ("title", title), ("seal", seal), ("check", check), ("pill", pill)]:
+    for name, make in [
+        ("page", page),
+        ("leather", leather),
+        ("spine", spine),
+        ("ribbon", ribbon),
+        ("title", title),
+        ("seal", seal),
+        ("check", check),
+        ("pill", pill),
+        ("ring", ring),
+        ("mask", mask),
+    ]:
         img = make().convert("RGBA")
-        assert img.width & (img.width - 1) == 0 and img.height & (img.height - 1) == 0, name
+        assert (
+            img.width & (img.width - 1) == 0 and img.height & (img.height - 1) == 0
+        ), name
         path = OUT / f"{name}.tga"
         img.save(path, compression=None)
         print(f"wrote {path.relative_to(ROOT)} ({img.width}x{img.height})")

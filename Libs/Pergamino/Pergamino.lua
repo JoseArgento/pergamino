@@ -9,7 +9,7 @@
 -- No Blizzard frame templates: every piece is drawn here.
 
 local ADDON = ...
-local VERSION = 1
+local VERSION = 2
 
 if Pergamino and (Pergamino.VERSION or 0) >= VERSION then
 	return
@@ -85,8 +85,8 @@ P.fonts = {
 	buttonDisabled = font("PergaminoButtonDisabled", "Cinzel-SemiBold.ttf", 11, P.INK_SOFT),
 	chip = font("PergaminoChip", "Cinzel-SemiBold.ttf", 11, P.INK),
 	chipOn = font("PergaminoChipOn", "Cinzel-SemiBold.ttf", 11, P.PARCHMENT),
-	tab = font("PergaminoTab", "Cinzel-SemiBold.ttf", 11, P.PARCHMENT),
-	tabOn = font("PergaminoTabOn", "Cinzel-SemiBold.ttf", 11, P.INK),
+	tab = font("PergaminoTab", "Cinzel-SemiBold.ttf", 10, P.PARCHMENT),
+	tabOn = font("PergaminoTabOn", "Cinzel-SemiBold.ttf", 10, P.INK),
 	tag = font("PergaminoTag", "Cinzel-SemiBold.ttf", 9, P.PARCHMENT),
 }
 
@@ -242,7 +242,10 @@ function P.Check(parent, text, onClick)
 	return c
 end
 
--- A single-line field: just text over an ink line, with a placeholder. opts: { placeholder, font }
+-- A single-line field: just text over an ink line, with a placeholder.
+-- opts: { placeholder, font, maxLetters, onEnter(edit), onChange(edit, text) }. onChange fires only for what the
+-- player types; edit:SetValue(text) writes without firing it and keeps the caret at the end, so a value the
+-- addon recomputes (a count after "+") never shows the old typed text beside the new one.
 function P.Edit(parent, width, opts)
 	opts = opts or {}
 	local e = CreateFrame("EditBox", nil, parent)
@@ -280,11 +283,24 @@ function P.Edit(parent, width, opts)
 		self.under:SetAlpha(0.6)
 		updatePlaceholder()
 	end)
-	e:SetScript("OnTextChanged", function()
+	e:SetScript("OnTextChanged", function(self, userInput)
 		updatePlaceholder()
+		if userInput and not self.silent and opts.onChange then
+			opts.onChange(self, self:GetText() or "")
+		end
 	end)
 	function e:SetPlaceholder(text)
 		ph:SetText(text or "")
+	end
+	function e:SetValue(text)
+		text = text == nil and "" or tostring(text)
+		self.silent = true
+		self:SetText(text)
+		self.silent = false
+		if self.SetCursorPosition then
+			self:SetCursorPosition(#text)
+		end
+		updatePlaceholder()
 	end
 	updatePlaceholder()
 	return e
@@ -382,9 +398,17 @@ function P.List(parent, rowHeight, init, onClick)
 		init(row, item)
 	end)
 	ScrollUtil.InitScrollBoxListWithScrollBar(box, bar, view)
-	local list = { box = box, bar = bar }
+	-- the bar only shows while there is more than fits: Blizzard's behaviour when the client has it, else ours
+	local managed = ScrollUtil.AddManagedScrollBarVisibilityBehavior ~= nil
+	if managed then
+		ScrollUtil.AddManagedScrollBarVisibilityBehavior(box, bar)
+	end
+	local list = { box = box, bar = bar, rowHeight = rowHeight }
 	function list:SetData(items, keepScroll)
 		box:SetDataProvider(CreateDataProvider(items), keepScroll and ScrollBoxConstants.RetainScrollPosition or nil)
+		if not managed then
+			bar:SetShown(#items * rowHeight > (box:GetHeight() or 0))
+		end
 	end
 	function list:Refresh()
 		box:ForEachFrame(function(row)
@@ -416,7 +440,8 @@ end
 -- the book -----------------------------------------------------------------------------------------------
 local LEATHER = 18 -- the cover around the pages
 local MARGIN = 22 -- inside each page
-local TAB_W, TAB_W_ON, TAB_H, TAB_GAP, TAB_TOP, TAB_IN = 128, 142, 30, 6, 70, 40
+-- a bookmark: the first TAB_IN px are tucked under the book; the label gets the rest, on one line
+local TAB_W, TAB_W_ON, TAB_H, TAB_GAP, TAB_TOP, TAB_IN = 184, 198, 30, 6, 70, 40
 
 -- A book. opts: { title, width, height, single = false, tabs = { { key, label }, ... }, escape = true }
 -- Returns a frame with .left and .right (content areas; .right is nil in single mode), .pages[key] =
@@ -559,8 +584,9 @@ function P.Book(name, opts)
 		local fs = t:GetFontString()
 		if fs then
 			fs:SetPoint("LEFT", t, "LEFT", TAB_IN + 10, 0)
-			fs:SetPoint("RIGHT", t, "RIGHT", -18, 0)
+			fs:SetPoint("RIGHT", t, "RIGHT", -14, 0)
 			fs:SetJustifyH("LEFT")
+			fs:SetWordWrap(false)
 		end
 		t.key = key
 		t:SetScript("OnClick", function()
@@ -666,4 +692,98 @@ function P.Card(name, width, height, title)
 	end)
 	f.close = close
 	return f
+end
+
+-- the minimap button ------------------------------------------------------------------------------------
+-- A round 32 px button on the rim of the minimap, in the addon's own leather ring, that can be dragged
+-- around the rim (no LibDBIcon: nothing to depend on). opts:
+--   icon     = "Interface\\AddOns\\X\\Media\\icon"  the picture inside (rounded by Media/mask)
+--   onClick  = function(button) end                "LeftButton" or "RightButton"
+--   tooltip  = function(tip) end                   fills GameTooltip (AddLine…) on hover
+--   angle    = degrees                             where it sits (0 = right, 90 = top); default 200
+--   onMove   = function(angle) end                 after a drag, to save the angle
+--   shown    = bool                                false hides it (default true)
+-- Returns the Button with :SetAngle(deg), .angle, .icon, .ring; SetShown as any frame.
+local MINIMAP_RADIUS_EXTRA = 5
+
+function P.MinimapButton(name, opts)
+	opts = opts or {}
+	local b = CreateFrame("Button", name, Minimap)
+	b:SetSize(32, 32)
+	b:SetFrameStrata("MEDIUM")
+	b:SetFrameLevel(8)
+	b:SetMovable(true)
+	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+	b:RegisterForDrag("LeftButton")
+	local icon = b:CreateTexture(nil, "ARTWORK")
+	icon:SetSize(22, 22)
+	icon:SetPoint("CENTER", 0, 0)
+	icon:SetTexture(opts.icon)
+	if icon.SetMask then
+		icon:SetMask(P.MEDIA .. "mask")
+	end
+	b.icon = icon
+	local ring = b:CreateTexture(nil, "OVERLAY")
+	ring:SetAllPoints()
+	ring:SetTexture(P.MEDIA .. "ring")
+	b.ring = ring
+	local hl = b:CreateTexture(nil, "HIGHLIGHT")
+	hl:SetSize(22, 22)
+	hl:SetPoint("CENTER", 0, 0)
+	hl:SetColorTexture(1, 0.9, 0.6, 0.18)
+	if hl.SetMask then
+		hl:SetMask(P.MEDIA .. "mask")
+	end
+
+	function b:SetAngle(deg)
+		self.angle = deg or 200
+		local r = (Minimap:GetWidth() or 140) / 2 + MINIMAP_RADIUS_EXTRA
+		local a = math.rad(self.angle)
+		self:ClearAllPoints()
+		self:SetPoint("CENTER", Minimap, "CENTER", math.cos(a) * r, math.sin(a) * r)
+	end
+	local function follow(self)
+		local mx, my = Minimap:GetCenter()
+		local cx, cy = GetCursorPosition()
+		local scale = Minimap:GetEffectiveScale() or 1
+		if not (mx and my and cx and cy) then
+			return
+		end
+		self:SetAngle(math.deg(math.atan2(cy / scale - my, cx / scale - mx)))
+	end
+	b:SetScript("OnDragStart", function(self)
+		self.dragging = true
+		self:SetScript("OnUpdate", follow)
+	end)
+	b:SetScript("OnDragStop", function(self)
+		self.dragging = false
+		self:SetScript("OnUpdate", nil)
+		if opts.onMove then
+			opts.onMove(self.angle)
+		end
+	end)
+	b:SetScript("OnClick", function(self, button)
+		if self.dragging then
+			return
+		end
+		if opts.onClick then
+			opts.onClick(button)
+		end
+	end)
+	b:SetScript("OnEnter", function(self)
+		if not opts.tooltip or not GameTooltip then
+			return
+		end
+		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
+		opts.tooltip(GameTooltip)
+		GameTooltip:Show()
+	end)
+	b:SetScript("OnLeave", function()
+		if GameTooltip then
+			GameTooltip:Hide()
+		end
+	end)
+	b:SetAngle(opts.angle)
+	b:SetShown(opts.shown ~= false)
+	return b
 end

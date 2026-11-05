@@ -15,9 +15,11 @@ body{margin:0;background:#2b3a2a url() ;height:720px;display:grid;place-items:ce
 .content.l{left:18px}.content.r{right:18px}
 .title{position:absolute;top:-12px;left:50%;width:360px;height:44px;margin-left:-180px;background:url(preview-media/title.png) center/100% 100%;display:grid;place-items:center;font:700 16px Cinzel;color:#d8a845;letter-spacing:.06em;text-shadow:0 1px 0 #3a0c06}
 .seal{position:absolute;top:-10px;right:-10px;width:40px;height:40px;background:url(preview-media/seal.png) center/contain}
-.tabs{position:absolute;right:-92px;top:70px;display:grid;gap:6px}
-.tab{width:128px;height:30px;background:url(preview-media/ribbon.png) 0 0/112px 60px;display:flex;align-items:center;padding-left:16px;box-sizing:border-box;font:600 11px Cinzel;color:#f6e8c6;letter-spacing:.04em;margin-left:14px;text-shadow:0 1px 0 #3a0c06}
-.tab.on{background-position:0 -30px;color:#3a2313;width:142px;margin-left:0;text-shadow:none}
+.tabs{position:absolute;right:-148px;top:70px;display:grid;gap:6px}
+.tab{width:184px;height:30px;background:url(preview-media/ribbon.png) 0 0/184px 60px;display:flex;align-items:center;padding-left:16px;box-sizing:border-box;font:600 10px Cinzel;color:#f6e8c6;letter-spacing:.04em;margin-left:14px;text-shadow:0 1px 0 #3a0c06;white-space:nowrap}
+.tab.on{background-position:0 -30px;color:#3a2313;width:198px;margin-left:0;text-shadow:none}
+.mini{position:absolute;left:-120px;top:40px;width:32px;height:32px;background:url(preview-media/ring.png) center/contain}
+.mini i{position:absolute;inset:5px;border-radius:50%;background:#8f2a1d url(preview-media/seal.png) center/contain}
 h2{font:600 13px Cinzel;color:#8f2a1d;margin:0 0 8px;letter-spacing:.06em}
 .rule{border:0;border-top:1px solid rgba(58,35,19,.35);margin:6px 0 10px}
 .row{display:flex;justify-content:space-between;padding:5px 2px;border-bottom:1px dotted rgba(58,35,19,.35)}
@@ -33,8 +35,8 @@ h2{font:600 13px Cinzel;color:#8f2a1d;margin:0 0 8px;letter-spacing:.06em}
 </style></head><body>
 <div class="book">
   <div class="page l"></div><div class="page r"></div><div class="spine"></div>
-  <div class="title">BITÁCORA</div><div class="seal"></div>
-  <div class="tabs"><div class="tab on">Libreta</div><div class="tab">Diario</div><div class="tab">Álbum</div><div class="tab">Recordatorios</div><div class="tab">Progreso</div><div class="tab">Guild</div></div>
+  <div class="title">BITÁCORA</div><div class="seal"></div><div class="mini" title="botón de minimapa"><i></i></div>
+  <div class="tabs"><div class="tab on">LIBRETA</div><div class="tab">DIARIO</div><div class="tab">ÁLBUM</div><div class="tab">RECORDATORIOS</div><div class="tab">PROGRESO</div><div class="tab">GUILD</div></div>
   <div class="content l">
     <div style="display:flex;justify-content:space-between;align-items:center"><div><span class="chip on">Todas</span><span class="chip">General</span><span class="chip">Onyxia</span><span class="chip">+</span></div><input class="edit" style="width:110px" placeholder="Buscar"></div>
     <hr class="rule">

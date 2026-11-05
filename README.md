@@ -18,6 +18,8 @@ y en el `.toc`, como primer archivo:
 Libs\Pergamino\Pergamino.lua
 ```
 
+`Bindings.xml` (los atajos de teclado) **no va en el TOC**: el juego lo carga solo por su nombre, y listado lo lee como XML de interfaz y avisa "Unrecognized XML: Binding".
+
 La librería define un global `Pergamino`. Si dos addons traen copias, queda la más nueva (`Pergamino.VERSION`); las texturas y fuentes se leen de la carpeta del addon cuya copia se cargó, así que cada copia tiene que estar completa.
 
 ## API
@@ -31,9 +33,10 @@ Todo devuelve frames normales de WoW; los puntos y tamaños los ponés vos.
 | `Pergamino.Button(parent, texto, ancho, onClick)` | Botón de cuero con letras doradas, 26 de alto. |
 | `Pergamino.Chip(parent, texto, onClick)` | Pastilla de tinta para filtros; `:SetPressed(bool)`, `:Fit()`. |
 | `Pergamino.Check(parent, texto, onClick)` | Casilla de tinta con tilde; `.label`. |
-| `Pergamino.Edit(parent, ancho, { placeholder, font, maxLetters, onEnter })` | Campo de una línea sobre una línea de tinta; `:SetPlaceholder(texto)`. |
+| `Pergamino.Edit(parent, ancho, { placeholder, font, maxLetters, onEnter(edit), onChange(edit, texto) })` | Campo de una línea sobre una línea de tinta; `:SetPlaceholder(texto)`, `:SetValue(texto)` escribe sin disparar `onChange` y deja el cursor al final (`onChange` solo salta con lo que tipea el jugador). Para un número que el addon recalcula (un "+"), usá `SetValue` y `ClearFocus`: así nunca queda lo tipeado al lado del valor nuevo. |
 | `Pergamino.TextArea(parent)` | Texto largo (el `ScrollingEditBoxTemplate` del juego con nuestra fuente); `.box`, `.bar`. |
-| `Pergamino.List(parent, altoFila, init, onClick)` | Lista con scroll (ScrollBox); filas con filete de tinta, hover tinta y selección dorada (`row.selected:Show()`); `:SetData(items, keepScroll)`, `:Refresh()`, `.box`, `.bar`. |
+| `Pergamino.List(parent, altoFila, init, onClick)` | Lista con scroll (ScrollBox); filas con filete de tinta, hover tinta y selección dorada (`row.selected:Show()`); `:SetData(items, keepScroll)`, `:Refresh()`, `.box`, `.bar`. La barra se ve solo cuando las filas no entran. |
+| `Pergamino.MinimapButton(name, { icon, onClick(botón), tooltip(tip), angle, onMove(ángulo), shown })` | Botón redondo de 32 px en el borde del minimapa, con aro de cuero propio y el ícono del addon (`icon` = ruta sin extensión, p. ej. `Interface\\AddOns\\MiAddon\\Media\\icon`). Se arrastra alrededor del minimapa; `onMove` recibe el ángulo en grados para guardarlo y `angle` lo repone (0 = derecha, 90 = arriba; por defecto 200). `onClick` recibe `"LeftButton"` o `"RightButton"`; `tooltip` llena el `GameTooltip`. `:SetAngle(grados)`, `:SetShown(bool)` para la opción "mostrar botón del minimapa". |
 | `Pergamino.Panel(parent)` | Recuadro apenas hundido con borde de tinta. |
 | `Pergamino.Rule(parent, alpha)` | Filete horizontal de tinta (alto 1). |
 | `Pergamino.Tag(parent, texto, kind)` | Etiqueta chica de color según `Pergamino.KIND_COLORS` (`level`, `boss`, `death`, `note`, `loot`, `zone`, …); `:Set(texto, kind)`. |
@@ -46,7 +49,7 @@ Los popups siguen siendo los de Blizzard (`StaticPopup`): no se pueden reskinear
 
 ## Texturas y fuentes
 
-`tools/make_textures.py` dibuja todo con Pillow (ruido y formas, sin arte del juego) en `Libs/Pergamino/Media/*.tga`, potencias de 2. Las fuentes son Alegreya y Cinzel, licencia OFL (`Libs/Pergamino/Fonts/OFL.txt`). `tools/preview.html` es una maqueta HTML con las mismas medidas, para mirar el diseño sin entrar al juego (`docs/preview.png`).
+Los marcadores miden 184 px (198 el activo), 40 de ellos metidos bajo la tapa, con el rótulo en una sola línea en Cinzel 10. `tools/make_textures.py` dibuja todo con Pillow (ruido y formas, sin arte del juego) en `Libs/Pergamino/Media/*.tga`, potencias de 2. Las fuentes son Alegreya y Cinzel, licencia OFL (`Libs/Pergamino/Fonts/OFL.txt`). `tools/preview.html` es una maqueta HTML con las mismas medidas, para mirar el diseño sin entrar al juego (`docs/preview.png`).
 
 ## Desarrollo
 
