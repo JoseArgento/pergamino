@@ -528,7 +528,8 @@ end
 MOCK.groupRealm = {} -- unit -> realm of a group member from another realm
 function UnitName(unit)
 	if unit == "player" then
-		return MOCK.player.name
+		-- like the game: a second value (the realm, nil for your own) that spills into table.insert and the like
+		return MOCK.player.name, nil
 	end
 	if unit == "target" then
 		return MOCK.target and MOCK.target.name
