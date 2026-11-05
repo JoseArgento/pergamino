@@ -15,9 +15,13 @@ body{margin:0;background:#2b3a2a url() ;height:720px;display:grid;place-items:ce
 .content.l{left:18px}.content.r{right:18px}
 .title{position:absolute;top:-12px;left:50%;width:360px;height:44px;margin-left:-180px;background:url(preview-media/title.png) center/100% 100%;display:grid;place-items:center;font:700 16px Cinzel;color:#d8a845;letter-spacing:.06em;text-shadow:0 1px 0 #3a0c06}
 .seal{position:absolute;top:-10px;right:-10px;width:40px;height:40px;background:url(preview-media/seal.png) center/contain}
-.tabs{position:absolute;right:-148px;top:70px;display:grid;gap:6px}
-.tab{width:184px;height:30px;background:url(preview-media/ribbon.png) 0 0/184px 60px;display:flex;align-items:center;padding-left:16px;box-sizing:border-box;font:600 10px Cinzel;color:#f6e8c6;letter-spacing:.04em;margin-left:14px;text-shadow:0 1px 0 #3a0c06;white-space:nowrap}
-.tab.on{background-position:0 -30px;color:#3a2313;width:198px;margin-left:0;text-shadow:none}
+.tabs{position:absolute;left:838px;top:64px;display:flex;flex-direction:column;gap:12px}
+.tab{position:relative;width:150px;height:28px;display:flex;align-items:center;padding-left:32px;box-sizing:border-box;font:600 10px Cinzel;letter-spacing:.06em;color:#f6e8c6;text-shadow:0 1px 0 rgba(0,0,0,.6);white-space:nowrap;
+ -webkit-mask:url(preview-media/bookmark.png) 0 0/100% 100%;background-blend-mode:multiply;background-image:url(preview-media/bookmark.png);background-size:100% 100%}
+.tab.on{width:164px;filter:brightness(1.25)}
+.tab.on::before{content:"";position:absolute;left:20px;top:2px;bottom:2px;width:3px;background:#d8a845}
+.tab.act{width:128px;height:22px;margin-top:4px}
+.c1{background-color:#8f2a1d}.c2{background-color:#2f4a7a}.c3{background-color:#3d6b3a}.c4{background-color:#9a6b1c}.c5{background-color:#5e3566}.c6{background-color:#4a4f57}.c0{background-color:#5c4530}
 .mini{position:absolute;left:-120px;top:40px;width:32px;height:32px;background:url(preview-media/ring.png) center/contain}
 .mini i{position:absolute;inset:5px;border-radius:50%;background:#8f2a1d url(preview-media/seal.png) center/contain}
 h2{font:600 13px Cinzel;color:#8f2a1d;margin:0 0 8px;letter-spacing:.06em}
@@ -36,7 +40,7 @@ h2{font:600 13px Cinzel;color:#8f2a1d;margin:0 0 8px;letter-spacing:.06em}
 <div class="book">
   <div class="page l"></div><div class="page r"></div><div class="spine"></div>
   <div class="title">BITÁCORA</div><div class="seal"></div><div class="mini" title="botón de minimapa"><i></i></div>
-  <div class="tabs"><div class="tab on">LIBRETA</div><div class="tab">DIARIO</div><div class="tab">ÁLBUM</div><div class="tab">RECORDATORIOS</div><div class="tab">PROGRESO</div><div class="tab">GUILD</div></div>
+  <div class="tabs"><div class="tab c1 on">LIBRETA</div><div class="tab c2">DIARIO</div><div class="tab c3">ÁLBUM</div><div class="tab c4">RECORDATORIOS</div><div class="tab c5">PROGRESO</div><div class="tab c6">GUILD</div><div class="tab c0 act">OPCIONES</div></div>
   <div class="content l">
     <div style="display:flex;justify-content:space-between;align-items:center"><div><span class="chip on">Todas</span><span class="chip">General</span><span class="chip">Onyxia</span><span class="chip">+</span></div><input class="edit" style="width:110px" placeholder="Buscar"></div>
     <hr class="rule">

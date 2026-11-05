@@ -9,7 +9,7 @@
 -- No Blizzard frame templates: every piece is drawn here.
 
 local ADDON = ...
-local VERSION = 2
+local VERSION = 3
 
 if Pergamino and (Pergamino.VERSION or 0) >= VERSION then
 	return
@@ -440,8 +440,22 @@ end
 -- the book -----------------------------------------------------------------------------------------------
 local LEATHER = 18 -- the cover around the pages
 local MARGIN = 22 -- inside each page
--- a bookmark: the first TAB_IN px are tucked under the book; the label gets the rest, on one line
-local TAB_W, TAB_W_ON, TAB_H, TAB_GAP, TAB_TOP, TAB_IN = 184, 198, 30, 6, 70, 40
+-- a bookmark: the first TAB_IN px are tucked under the book; the label gets the rest, on one line.
+-- Each bookmark is its own colour (P.BOOKMARK_COLORS, in order), with air between them; the open one is
+-- brighter, a little longer and has a gold edge where it leaves the book.
+local TAB_W, TAB_W_ON, TAB_H, TAB_GAP, TAB_TOP, TAB_IN = 150, 164, 28, 12, 64, 22
+local TAB_SMALL_W, TAB_SMALL_H = 128, 22
+P.BOOKMARK_COLORS = {
+	{ 0.56, 0.16, 0.11 }, -- crimson
+	{ 0.18, 0.29, 0.48 }, -- indigo
+	{ 0.24, 0.42, 0.23 }, -- moss
+	{ 0.60, 0.42, 0.11 }, -- ochre
+	{ 0.37, 0.21, 0.40 }, -- plum
+	{ 0.29, 0.31, 0.34 }, -- slate
+	{ 0.45, 0.24, 0.13 }, -- rust
+	{ 0.15, 0.38, 0.40 }, -- teal
+}
+P.BOOKMARK_ACTION_COLOR = { 0.36, 0.27, 0.19 } -- a plain brown for bookmarks that do something (Options)
 
 -- A book. opts: { title, width, height, single = false, tabs = { { key, label }, ... }, escape = true }
 -- Returns a frame with .left and .right (content areas; .right is nil in single mode), .pages[key] =
@@ -557,39 +571,77 @@ function P.Book(name, opts)
 	-- bookmarks
 	f.tabs, f.tabOrder, f.pages = {}, {}, {}
 	local function layoutTabs()
+		local y = TAB_TOP
 		for i, key in ipairs(f.tabOrder) do
 			local t = f.tabs[key]
 			local on = f.selected == key
+			local small = t.action ~= nil
+			if small and i > 1 then
+				y = y + 4 -- a little more air before the bookmarks that do something
+			end
 			t:ClearAllPoints()
-			t:SetPoint("TOPLEFT", f, "TOPRIGHT", -TAB_IN, -(TAB_TOP + (i - 1) * (TAB_H + TAB_GAP)))
-			t:SetWidth(on and TAB_W_ON or TAB_W)
-			t.cloth:SetTexCoord(0, 1, on and 0.5 or 0, on and 1 or 0.5)
-			t:SetNormalFontObject(on and P.fonts.tabOn or P.fonts.tab)
-			t:SetHighlightFontObject(on and P.fonts.tabOn or P.fonts.tab)
+			t:SetPoint("TOPLEFT", f, "TOPRIGHT", -TAB_IN, -y)
+			t:SetSize(small and TAB_SMALL_W or (on and TAB_W_ON or TAB_W), small and TAB_SMALL_H or TAB_H)
+			local c = t.color
+			local k = on and 1.25 or 1
+			t.cloth:SetVertexColor(math.min(1, c[1] * k), math.min(1, c[2] * k), math.min(1, c[3] * k), 1)
+			t.edge:SetShown(on)
+			t:SetNormalFontObject(P.fonts.tab)
+			t:SetHighlightFontObject(P.fonts.tab)
+			y = y + (small and TAB_SMALL_H or TAB_H) + TAB_GAP
 		end
 	end
-	function f:AddTab(key, label)
+	-- A bookmark. opts.action = function() makes one that does something (opens Options) instead of
+	-- turning to a page: smaller, brown, never selected. opts.color = { r, g, b } overrides the colour.
+	function f:AddTab(key, label, opts)
+		opts = opts or {}
 		local t = CreateFrame("Button", nil, f)
 		t:SetSize(TAB_W, TAB_H)
 		t:SetFrameLevel(f:GetFrameLevel() + 4)
+		t.action = opts.action
+		local n = 0
+		for _, k in ipairs(f.tabOrder) do
+			if not f.tabs[k].action then
+				n = n + 1
+			end
+		end
+		t.color = opts.color
+			or (opts.action and P.BOOKMARK_ACTION_COLOR)
+			or P.BOOKMARK_COLORS[(n % #P.BOOKMARK_COLORS) + 1]
 		local tabCloth = t:CreateTexture(nil, "ARTWORK")
 		tabCloth:SetAllPoints()
-		tabCloth:SetTexture(P.MEDIA .. "ribbon")
+		tabCloth:SetTexture(P.MEDIA .. "bookmark")
 		t.cloth = tabCloth
+		-- the gold edge of the open bookmark, where it comes out of the book
+		local edge = t:CreateTexture(nil, "OVERLAY")
+		edge:SetPoint("TOPLEFT", TAB_IN - 2, -2)
+		edge:SetPoint("BOTTOMLEFT", TAB_IN - 2, 2)
+		edge:SetWidth(3)
+		edge:SetColorTexture(P.GOLD[1], P.GOLD[2], P.GOLD[3], 1)
+		edge:Hide()
+		t.edge = edge
 		local hl = t:CreateTexture(nil, "HIGHLIGHT")
 		hl:SetAllPoints()
-		hl:SetColorTexture(1, 0.9, 0.6, 0.1)
+		hl:SetTexture(P.MEDIA .. "bookmark")
+		hl:SetVertexColor(1, 0.95, 0.8, 0.18)
 		t:SetNormalFontObject(P.fonts.tab)
 		t:SetText(label or key)
 		local fs = t:GetFontString()
 		if fs then
+			fs:ClearAllPoints()
 			fs:SetPoint("LEFT", t, "LEFT", TAB_IN + 10, 0)
-			fs:SetPoint("RIGHT", t, "RIGHT", -14, 0)
+			fs:SetPoint("RIGHT", t, "RIGHT", -16, 0)
 			fs:SetJustifyH("LEFT")
 			fs:SetWordWrap(false)
+			fs:SetShadowColor(0, 0, 0, 0.6)
+			fs:SetShadowOffset(0, -1)
 		end
 		t.key = key
 		t:SetScript("OnClick", function()
+			if t.action then
+				t.action()
+				return
+			end
 			f:SelectTab(key)
 			if PlaySound and SOUNDKIT and SOUNDKIT.IG_ABILITY_PAGE_TURN then
 				PlaySound(SOUNDKIT.IG_ABILITY_PAGE_TURN)
@@ -616,8 +668,14 @@ function P.Book(name, opts)
 		return page
 	end
 	function f:SelectTab(key)
-		if not f.tabs[key] then
-			key = f.tabOrder[1]
+		if not f.tabs[key] or f.tabs[key].action then
+			key = nil
+			for _, k in ipairs(f.tabOrder) do
+				if not f.tabs[k].action then
+					key = k
+					break
+				end
+			end
 		end
 		f.selected = key
 		for k, page in pairs(f.pages) do

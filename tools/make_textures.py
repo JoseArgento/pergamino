@@ -7,7 +7,9 @@ WoW client loads from an addon folder. Deterministic: the same seed gives the sa
   page.tga          512x512  parchment page (the book shows the left page as-is and mirrors it for the right one)
   leather.tga       512x512  dark leather: the cover around the pages, the fill of buttons
   spine.tga         128x512  the shadow of the spine, alpha only (stretched over the middle of the book)
-  ribbon.tga        256x128  two cloth bookmarks, 256x64 each: crimson (top) and gold (bottom)
+  ribbon.tga        256x128  two cloth bookmarks, 256x64 each: crimson (top) and gold (bottom) (kept for old copies)
+  bookmark.tga      256x32   a light cloth bookmark, tinted in-game (one colour per bookmark): tucked-in shadow on the
+                             left, stitches along both edges, swallowtail on the right
   title.tga         512x64   the banner that holds the title
   seal.tga          64x64    a wax seal (the close button)
   check.tga         64x32    an ink box (left half) and its tick (right half)
@@ -157,6 +159,41 @@ def ribbon() -> Image.Image:
     return out
 
 
+def bookmark() -> Image.Image:
+    """A near-white cloth ribbon, tinted in-game with SetVertexColor. 256x32.
+
+    Left: a dark gradient where it goes under the cover. Top and bottom: a light dashed stitch. Right: a
+    swallowtail cut. A thin dark edge all around so two ribbons never melt into each other."""
+    w, h = 256, 32
+    weave = noise(w, h, 1, 41).point(lambda v: 205 + v * 50 // 255)
+    stripes = Image.new("L", (w, h))
+    sp = stripes.load()
+    for y in range(h):
+        for x in range(w):
+            sp[x, y] = 255 if (y % 3) else 232  # fine woven lines along the length
+    body = ImageChops.multiply(weave, stripes)
+    px = body.load()
+    for y in range(h):  # fold: a little darker towards both edges
+        s = 1 - abs((y - (h - 1) / 2) / ((h - 1) / 2))
+        for x in range(w):
+            tuck = min(1.0, x / 34)  # the part under the cover goes dark
+            px[x, y] = int(px[x, y] * (0.78 + 0.22 * s) * (0.35 + 0.65 * tuck))
+    img = Image.merge("RGBA", (body, body, body, Image.new("L", (w, h), 255)))
+    d = ImageDraw.Draw(img)
+    for yy in (4, h - 5):  # stitches
+        for x in range(30, w - 22, 7):
+            d.line([(x, yy), (x + 3, yy)], fill=(255, 250, 235, 255), width=1)
+    mask = Image.new("L", (w, h), 0)
+    notch = 12
+    ImageDraw.Draw(mask).polygon([(0, 1), (w - 1, 1), (w - 1 - notch, h // 2), (w - 1, h - 2), (0, h - 2)], fill=255)
+    edge = mask.filter(ImageFilter.MinFilter(3))
+    outline = ImageChops.subtract(mask, edge)
+    dark = Image.new("RGBA", (w, h), (70, 60, 50, 255))
+    img = Image.composite(dark, img, outline)
+    img.putalpha(mask)
+    return img
+
+
 def title() -> Image.Image:
     w, h = 512, 64
     body = cloth(w, h, CRIMSON, CRIMSON_DARK, 23).convert("RGBA")
@@ -265,6 +302,7 @@ def main() -> None:
         ("leather", leather),
         ("spine", spine),
         ("ribbon", ribbon),
+        ("bookmark", bookmark),
         ("title", title),
         ("seal", seal),
         ("check", check),

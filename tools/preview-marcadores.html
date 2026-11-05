@@ -1,0 +1,79 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Marcadores: tres opciones</title>
+<style>
+@font-face{font-family:Alegreya;src:url(../Libs/Pergamino/Fonts/Alegreya-Regular.ttf)}
+@font-face{font-family:Alegreya;font-style:italic;src:url(../Libs/Pergamino/Fonts/Alegreya-Italic.ttf)}
+@font-face{font-family:Cinzel;font-weight:600;src:url(../Libs/Pergamino/Fonts/Cinzel-SemiBold.ttf)}
+@font-face{font-family:Cinzel;font-weight:700;src:url(../Libs/Pergamino/Fonts/Cinzel-Bold.ttf)}
+body{margin:0;background:#26301f;font-family:Alegreya;color:#f2e3c0;padding:28px 0 36px}
+h1{font:700 22px Cinzel;color:#d8a845;text-align:center;margin:0 0 6px;letter-spacing:.06em}
+p.sub{text-align:center;margin:0 0 22px;color:#cdbb92;font-size:15px}
+.row{display:flex;justify-content:center;gap:40px}
+.opt{width:560px}
+.opt h2{font:700 17px Cinzel;color:#d8a845;margin:0 0 4px;letter-spacing:.05em}
+.opt .why{font-size:14px;color:#cdbb92;margin:0 0 14px;min-height:58px;line-height:1.3}
+/* right half of the book: leather + right page + a bit of spine */
+.stage{position:relative;height:540px}
+.book{position:absolute;left:0;top:0;width:440px;height:540px;background:url(preview-media/leather.png) center/cover;border-radius:0 6px 6px 0;box-shadow:0 18px 40px rgba(0,0,0,.6)}
+.page{position:absolute;top:18px;bottom:18px;left:0;right:18px;background:url(preview-media/page.png) center/cover;transform:scaleX(-1)}
+.spine{position:absolute;top:18px;bottom:18px;left:-48px;width:96px;background:url(preview-media/spine.png) center/100% 100%;clip-path:inset(0 0 0 50%)}
+.content{position:absolute;top:18px;left:0;right:18px;bottom:18px;padding:22px 26px;color:#3a2313;font-size:14px;line-height:1.35}
+.content h3{font:600 13px Cinzel;color:#8f2a1d;margin:0 0 8px;letter-spacing:.06em}
+.content .l{border-bottom:1px dotted rgba(58,35,19,.35);padding:5px 0}
+.content .k{font-size:12px;color:#6c4e31}
+.seal{position:absolute;top:-10px;right:-10px;width:40px;height:40px;background:url(preview-media/seal.png) center/contain;z-index:5}
+
+/* A: separate cloth ribbons, one colour each, tucked under the page */
+.a .tabs{position:absolute;left:430px;top:64px;display:flex;flex-direction:column;gap:12px}
+.a .tab{position:relative;width:118px;height:28px;display:flex;align-items:center;padding-left:14px;box-sizing:border-box;
+  font:600 10px Cinzel;letter-spacing:.06em;color:#f6e8c6;text-shadow:0 1px 0 rgba(0,0,0,.5);
+  clip-path:polygon(0 0,100% 0,88% 50%,100% 100%,0 100%);
+  box-shadow:inset 0 2px 0 rgba(255,255,255,.12),inset 0 -2px 0 rgba(0,0,0,.25);
+  background-image:linear-gradient(90deg,rgba(0,0,0,.55),rgba(0,0,0,0) 22px),repeating-linear-gradient(0deg,rgba(255,255,255,.05) 0 1px,transparent 1px 3px)}
+.a .tab::after{content:"";position:absolute;left:8px;right:18px;top:4px;bottom:4px;border-top:1px dashed rgba(255,235,190,.35);border-bottom:1px dashed rgba(255,235,190,.35)}
+.a .c1{background-color:#8f2a1d}.a .c2{background-color:#2f4a7a}.a .c3{background-color:#3d6b3a}.a .c4{background-color:#9a6a1c}.a .c5{background-color:#5e3566}.a .c6{background-color:#4a4f57}
+.a .tab.on{width:132px;filter:brightness(1.18);box-shadow:inset 0 2px 0 rgba(255,255,255,.2),0 3px 6px rgba(0,0,0,.45)}
+.a .tab.on::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:#d8a845}
+
+/* B: index tabs cut from the page itself */
+.b .tabs{position:absolute;left:422px;top:58px;display:flex;flex-direction:column;gap:4px}
+.b .tab{position:relative;width:112px;height:34px;display:flex;align-items:center;padding-left:18px;box-sizing:border-box;
+  background:url(preview-media/page.png) 0 0/400px;filter:brightness(.86) sepia(.25);border:1px solid rgba(58,35,19,.55);border-left:0;border-radius:0 10px 10px 0;
+  font:600 10px Cinzel;letter-spacing:.06em;color:#3a2313;box-shadow:2px 2px 4px rgba(0,0,0,.35)}
+.b .tab.on{filter:none;width:120px;color:#8f2a1d;box-shadow:3px 3px 6px rgba(0,0,0,.45);z-index:2}
+.b .tab.on{margin-left:-20px;padding-left:38px;width:140px;border-left:0}
+
+/* C: medallions with an illuminated initial; the name shows on the active one and on hover */
+.c .tabs{position:absolute;left:420px;top:58px;display:flex;flex-direction:column;gap:10px}
+.c .tab{position:relative;width:46px;height:46px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 35% 30%,#a8402f,#6e1d12 70%);box-shadow:0 0 0 2px #94701f,0 0 0 4px #3a2313,0 3px 6px rgba(0,0,0,.5);
+  font:700 19px Cinzel;color:#f2d79a;text-shadow:0 1px 0 #3a0c06}
+.c .tab.on{background:radial-gradient(circle at 35% 30%,#f0cf7a,#a97c26 70%);color:#3a2313;text-shadow:none}
+.c .tab .name{position:absolute;left:54px;top:50%;transform:translateY(-50%);white-space:nowrap;font:600 10px Cinzel;letter-spacing:.06em;
+  background:#f2e3c0;color:#3a2313;padding:4px 10px;border:1px solid #94701f;border-radius:3px;box-shadow:0 2px 4px rgba(0,0,0,.4)}
+.c .tab .name.hover{opacity:.95;outline:1px dashed #94701f;outline-offset:2px}
+.note{font-size:13px;color:#cdbb92;margin-top:10px;font-style:italic}
+</style></head><body>
+<h1>MARCADORES · TRES OPCIONES</h1>
+<p class="sub">El mismo libro, solo cambia cómo salen los marcadores. Las tres salen menos del borde (no tapan el minimapa ni las misiones).</p>
+<div class="row">
+
+<div class="opt a"><h2>A · Cintas de tela separadas</h2>
+<p class="why">Cada cinta de un color, con aire entre una y otra, costura y sombra donde se meten bajo la página. Sale 118 px del libro (hoy 158).</p>
+<div class="stage"><div class="book"><div class="spine"></div><div class="page"></div>
+<div class="content"><h3>RECORDATORIOS</h3><div class="l">comprar<br><span class="k">al entrar a Elwynn · Rumiechumie</span></div><div class="l">vender la tela<br><span class="k">al abrir el correo</span></div></div><div class="seal"></div></div>
+<div class="tabs"><div class="tab c1">LIBRETA</div><div class="tab c2">DIARIO</div><div class="tab c3">ÁLBUM</div><div class="tab c4 on">RECORDATORIOS</div><div class="tab c5">PROGRESO</div><div class="tab c6">GUILD</div></div></div></div>
+
+<div class="opt b"><h2>B · Pestañas de índice</h2>
+<p class="why">Como las pestañas de una agenda: recortadas del mismo pergamino. La activa sigue la página (se ve que estás ahí); las otras, un poco más oscuras atrás.</p>
+<div class="stage"><div class="book"><div class="spine"></div><div class="page"></div>
+<div class="content"><h3>RECORDATORIOS</h3><div class="l">comprar<br><span class="k">al entrar a Elwynn · Rumiechumie</span></div><div class="l">vender la tela<br><span class="k">al abrir el correo</span></div></div><div class="seal"></div></div>
+<div class="tabs"><div class="tab">LIBRETA</div><div class="tab">DIARIO</div><div class="tab">ÁLBUM</div><div class="tab on">RECORDATORIOS</div><div class="tab">PROGRESO</div><div class="tab">GUILD</div></div></div></div>
+
+<div class="opt c"><h2>C · Medallones con inicial</h2>
+<p class="why">Un medallón de lacre por sección, con la inicial iluminada; el activo es dorado y muestra su nombre. Los otros dicen el nombre al pasar el mouse. Sale solo 46 px.</p>
+<div class="stage"><div class="book"><div class="spine"></div><div class="page"></div>
+<div class="content"><h3>RECORDATORIOS</h3><div class="l">comprar<br><span class="k">al entrar a Elwynn · Rumiechumie</span></div><div class="l">vender la tela<br><span class="k">al abrir el correo</span></div></div><div class="seal"></div></div>
+<div class="tabs"><div class="tab">L</div><div class="tab">D<span class="name hover">DIARIO</span></div><div class="tab">Á</div><div class="tab on">R<span class="name">RECORDATORIOS</span></div><div class="tab">P</div><div class="tab">G</div></div></div>
+<div class="note">El "Diario" con borde punteado es cómo se ve al pasar el mouse.</div></div>
+
+</div></body></html>

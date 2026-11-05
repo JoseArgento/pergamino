@@ -72,7 +72,7 @@ def test_textures_named_in_the_code_exist_and_are_powers_of_two():
         "page",
         "leather",
         "spine",
-        "ribbon",
+        "bookmark",
         "title",
         "seal",
         "check",
@@ -98,16 +98,16 @@ def test_textures_named_in_the_code_exist_and_are_powers_of_two():
 
 def test_a_newer_copy_wins_and_an_older_one_steps_aside(game):
     src = LIB.read_text(encoding="utf-8")
-    older = src.replace("local VERSION = 2", "local VERSION = 1")
+    older = src.replace("local VERSION = 3", "local VERSION = 1")
     game.load("OtherAddon", older)
     P = game.lua.globals().Pergamino
     assert (
-        P.VERSION == 2 and "TestAddon" in P.MEDIA
+        P.VERSION == 3 and "TestAddon" in P.MEDIA
     )  # the older copy did not replace it
-    newer = src.replace("local VERSION = 2", "local VERSION = 3")
+    newer = src.replace("local VERSION = 3", "local VERSION = 4")
     game.load("NewAddon", newer)
     P = game.lua.globals().Pergamino
-    assert P.VERSION == 3 and "NewAddon" in P.MEDIA
+    assert P.VERSION == 4 and "NewAddon" in P.MEDIA
 
 
 def test_book_has_two_pages_a_title_a_seal_and_bookmarks(game):
@@ -150,19 +150,24 @@ def test_selecting_a_tab_shows_its_page_and_marks_the_bookmark(game):
     ) == (True, False)
     assert game.run("return TestBook.pages.b.right:IsShown()") is True
     assert list(game.m.tabs.values()) == ["b"]
-    # the active bookmark is wider and wears the gold half of the cloth
+    # the active bookmark is a little longer, brighter, and shows its gold edge
     assert game.run(
         "return TestBook.tabs.b:GetWidth(), TestBook.tabs.a:GetWidth()"
-    ) == (198, 184)
+    ) == (164, 150)
+    assert game.run("return TestBook.tabs.b.edge:IsShown(), TestBook.tabs.a.edge:IsShown()") == (True, False)
+    # each bookmark has its own colour, from the list, in order
+    assert game.run("return TestBook.tabs.a.color == P.BOOKMARK_COLORS[1], TestBook.tabs.b.color == P.BOOKMARK_COLORS[2]") == (True, True)
+    ra = game.run("return TestBook.tabs.a.cloth._vertex[1]")
+    rb = game.run("return TestBook.tabs.b.cloth._vertex[3]")
+    assert abs(ra - 0.56) < 1e-6  # crimson, as is
+    assert abs(rb - min(1, 0.48 * 1.25)) < 1e-6  # indigo, brighter because open
     # the label sits on one line in the part of the bookmark that shows past the cover
-    assert (
-        game.run(
-            "return TestBook.tabs.a:GetFontString()._calls[#TestBook.tabs.a:GetFontString()._calls][1]"
-        )
-        == "SetWordWrap"
-    )
-    assert game.run("return TestBook.tabs.b.cloth:GetTexCoord()") == (0, 1, 0.5, 1)
-    assert game.run("return TestBook.tabs.a.cloth:GetTexCoord()") == (0, 1, 0, 0.5)
+    calls = [c[1] for c in game.run("return TestBook.tabs.a:GetFontString()._calls").values()]
+    assert "SetWordWrap" in calls
+    # air between bookmarks: the second starts TAB_H + TAB_GAP below the first
+    ya = game.run("local p = TestBook.tabs.a._points; return p[#p][5]")
+    yb = game.run("local p = TestBook.tabs.b._points; return p[#p][5]")
+    assert ya - yb == 28 + 12
     # clicking a bookmark selects it and turns the page
     game.m.sounds = game.lua.table()
     game.run(
@@ -347,3 +352,24 @@ def test_minimap_button_sits_on_the_rim_drags_around_it_and_clicks(game):
         "return P.MinimapButton('TestMini2', { icon = 'x', shown = false })"
     )
     assert hidden._shown is False
+
+
+def test_an_action_bookmark_does_something_and_is_never_selected(game):
+    game.run("""
+        local b = P.Book("ActionBook", { tabs = { { "a", "A" } } })
+        b:AddPage("a")
+        b.OnTab = function() end
+        MOCK.opened = 0
+        b:AddTab("options", "Opciones", { action = function() MOCK.opened = MOCK.opened + 1 end })
+        b:SelectTab("a")
+    """)
+    assert game.run("return ActionBook.tabs.options:GetWidth(), ActionBook.tabs.options:GetHeight()") == (128, 22)
+    assert game.run("return ActionBook.tabs.options.color == P.BOOKMARK_ACTION_COLOR") is True
+    game.run("ActionBook.tabs.options:GetScript('OnClick')()")
+    assert game.m.opened == 1
+    assert game.run("return ActionBook.selected") == "a"
+    game.run("ActionBook:SelectTab('options')")
+    assert game.run("return ActionBook.selected") == "a"
+    # and a page bookmark added after it still takes the next colour, not the brown
+    game.run("ActionBook:AddTab('b', 'B')")
+    assert game.run("return ActionBook.tabs.b.color == P.BOOKMARK_COLORS[2]") is True
