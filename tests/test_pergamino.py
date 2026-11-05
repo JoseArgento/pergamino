@@ -98,16 +98,16 @@ def test_textures_named_in_the_code_exist_and_are_powers_of_two():
 
 def test_a_newer_copy_wins_and_an_older_one_steps_aside(game):
     src = LIB.read_text(encoding="utf-8")
-    older = src.replace("local VERSION = 3", "local VERSION = 1")
+    older = src.replace("local VERSION = 4", "local VERSION = 1")
     game.load("OtherAddon", older)
     P = game.lua.globals().Pergamino
     assert (
-        P.VERSION == 3 and "TestAddon" in P.MEDIA
+        P.VERSION == 4 and "TestAddon" in P.MEDIA
     )  # the older copy did not replace it
-    newer = src.replace("local VERSION = 3", "local VERSION = 4")
+    newer = src.replace("local VERSION = 4", "local VERSION = 5")
     game.load("NewAddon", newer)
     P = game.lua.globals().Pergamino
-    assert P.VERSION == 4 and "NewAddon" in P.MEDIA
+    assert P.VERSION == 5 and "NewAddon" in P.MEDIA
 
 
 def test_book_has_two_pages_a_title_a_seal_and_bookmarks(game):
@@ -373,3 +373,14 @@ def test_an_action_bookmark_does_something_and_is_never_selected(game):
     # and a page bookmark added after it still takes the next colour, not the brown
     game.run("ActionBook:AddTab('b', 'B')")
     assert game.run("return ActionBook.tabs.b.color == P.BOOKMARK_COLORS[2]") is True
+
+
+def test_text_area_keeps_ink_after_set_text(game):
+    # Blizzard's edit box re-applies edit.fontName / edit.textColor on every SetText: they must be ours
+    game.run("""
+        CreateColor = CreateColor or function(r, g, b, a) return { r = r, g = g, b = b, a = a, GetRGB = function(c) return c.r, c.g, c.b end } end
+        MOCK.area = P.TextArea(UIParent)
+    """)
+    assert game.run("return MOCK.area.box:GetEditBox() ~= nil") is True
+    assert game.run("local e = MOCK.area.box:GetEditBox(); return e.fontName == P.fonts.body") is True
+    assert game.run("local e = MOCK.area.box:GetEditBox(); return e.textColor ~= nil and math.abs(e.textColor.r - P.INK[1]) < 1e-6") is True

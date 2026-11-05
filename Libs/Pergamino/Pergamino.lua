@@ -9,7 +9,7 @@
 -- No Blizzard frame templates: every piece is drawn here.
 
 local ADDON = ...
-local VERSION = 3
+local VERSION = 4
 
 if Pergamino and (Pergamino.VERSION or 0) >= VERSION then
 	return
@@ -325,6 +325,14 @@ function P.TextArea(parent)
 	end
 	local edit = box.GetEditBox and box:GetEditBox()
 	if edit then
+		-- Blizzard's EventEditBox puts back its own font (fontName) and colour (textColor) on every
+		-- SetText, which left the text white on the parchment: give it ours so it puts back ink.
+		edit.fontName = P.fonts.body
+		edit.defaultFontName = P.fonts.muted
+		if CreateColor then
+			edit.textColor = CreateColor(P.INK[1], P.INK[2], P.INK[3], 1)
+			edit.defaultFontColor = CreateColor(P.INK_SOFT[1], P.INK_SOFT[2], P.INK_SOFT[3], 1)
+		end
 		if edit.SetFontObject then
 			edit:SetFontObject(P.fonts.body)
 		end
