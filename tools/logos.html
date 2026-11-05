@@ -1,0 +1,44 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Logos</title>
+<style>
+@font-face{font-family:Cinzel;font-weight:700;src:url(../Libs/Pergamino/Fonts/Cinzel-Bold.ttf)}
+body{margin:0;background:#222}
+.logo{position:relative;width:1024px;height:1024px;overflow:hidden;background:url(preview-media/leather.png) center/100% 100%}
+.logo::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,rgba(255,255,255,.08),rgba(0,0,0,.45))}
+.page{position:absolute;inset:64px;background:url(preview-media/page.png) center/100% 100%;box-shadow:inset 0 0 90px rgba(80,50,20,.45),0 10px 40px rgba(0,0,0,.6);border:3px solid rgba(58,35,19,.55)}
+.page::after{content:"";position:absolute;inset:18px;border:2px solid rgba(148,112,31,.55)}
+.sym{position:absolute;left:0;right:0;top:120px;height:560px;display:grid;place-items:center}
+.sym svg{width:470px;height:470px;fill:none;stroke:#3a2313;stroke-width:15;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 6px 0 rgba(216,168,69,.55))}
+.ribbon{position:absolute;left:40px;right:40px;bottom:120px;height:150px;background:#8f2a1d;clip-path:polygon(0 0,100% 0,96% 50%,100% 100%,0 100%,4% 50%);display:grid;place-items:center;box-shadow:0 8px 20px rgba(0,0,0,.5)}
+.ribbon::before{content:"";position:absolute;inset:10px 48px;border-top:2px solid rgba(216,168,69,.7);border-bottom:2px solid rgba(216,168,69,.7)}
+.ribbon span{font:700 92px Cinzel;color:#f2d79a;letter-spacing:.04em;text-shadow:0 3px 0 #3a0c06;white-space:nowrap}
+.ribbon.small span{font-size:66px}
+.seal{position:absolute;right:92px;top:92px;width:120px;height:120px;background:url(preview-media/seal.png) center/contain no-repeat;filter:drop-shadow(0 4px 6px rgba(0,0,0,.5))}
+</style></head><body>
+<div class="logo" id="bitacora"><div class="page"></div><div class="seal"></div>
+<div class="sym"><svg viewBox="0 0 200 200"><path d="M100 60c-18-18-48-22-72-14v110c24-8 54-4 72 14 18-18 48-22 72-14V46c-24-8-54-4-72 14z"/><path d="M100 60v110"/><path d="M52 80c14-3 26-2 36 2M52 110c14-3 26-2 36 2M148 80c-14-3-26-2-36 2M148 110c-14-3-26-2-36 2"/></svg></div>
+<div class="ribbon"><span>BITÁCORA</span></div></div>
+
+<div class="logo" id="recordame"><div class="page"></div><div class="seal"></div>
+<div class="sym"><svg viewBox="0 0 200 200"><path d="M100 32v12"/><path d="M58 142V98c0-26 18-46 42-46s42 20 42 46v44l16 18H42z"/><path d="M84 164c2 10 8 16 16 16s14-6 16-16"/></svg></div>
+<div class="ribbon"><span>RECORDAME</span></div></div>
+
+<div class="logo" id="bingo-guild"><div class="page"></div><div class="seal"></div>
+<div class="sym"><svg viewBox="0 0 200 200"><rect x="34" y="34" width="132" height="132" rx="10"/><path d="M78 34v132M122 34v132M34 78h132M34 122h132"/><path d="M48 56l14 14M62 56L48 70M134 100l14 14M148 100l-14 14M92 144l14 14M106 144l-14 14"/><circle cx="100" cy="100" r="9" fill="#8f2a1d" stroke="none"/></svg></div>
+<div class="ribbon small"><span>BINGO DE LA GUILD</span></div></div>
+
+<div class="logo" id="taller"><div class="page"></div><div class="seal"></div>
+<div class="sym"><svg viewBox="0 0 200 200"><path d="M30 170l74-74"/><path d="M92 46l62 62 20-20c12-12 12-30 0-42l-20-20c-12-12-30-12-42 0z"/><path d="M118 20l62 62"/></svg></div>
+<div class="ribbon"><span>TALLER</span></div></div>
+
+<div class="logo" id="listos-raid"><div class="page"></div><div class="seal"></div>
+<div class="sym"><svg viewBox="0 0 200 200"><path d="M52 176V28"/><path d="M52 36h98l-22 32 22 32H52"/><path d="M78 56h40M78 76h40" stroke="#8f2a1d" stroke-width="14"/></svg></div>
+<div class="ribbon small"><span>LISTOS PARA LA RAID</span></div></div>
+
+<div class="logo" id="centinela"><div class="page"></div><div class="seal"></div>
+<div class="sym"><svg viewBox="0 0 200 200"><path d="M22 100s30-52 78-52 78 52 78 52-30 52-78 52-78-52-78-52z"/><circle cx="100" cy="100" r="26"/><circle cx="100" cy="100" r="8" fill="#8f2a1d" stroke="none"/></svg></div>
+<div class="ribbon"><span>CENTINELA</span></div></div>
+
+<div class="logo" id="trueque"><div class="page"></div><div class="seal"></div>
+<div class="sym"><svg viewBox="0 0 200 200"><path d="M34 72h120l-30-30"/><path d="M166 128H46l30 30"/></svg></div>
+<div class="ribbon"><span>TRUEQUE</span></div></div>
+</body></html>
