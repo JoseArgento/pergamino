@@ -921,9 +921,16 @@ function P.Guard(addonName, db, opts)
 		return e
 	end
 
+	-- the game's traceback is debugstack (levels to skip, lines from the top, lines from the bottom);
+	-- plain Lua (the tests) has debug.traceback
+	local traceback = debugstack and function()
+		return debugstack(3, GUARD_LINES, 0)
+	end or function()
+		local d = rawget(_G, "debug")
+		return d and d.traceback and d.traceback("", 3) or ""
+	end
 	local function handler(err)
-		local trace = debug and debug.traceback and debug.traceback("", 2) or ""
-		return { message = err, stack = trim(trace) }
+		return { message = err, stack = trim(traceback()) }
 	end
 
 	function g.Wrap(fn, label)
