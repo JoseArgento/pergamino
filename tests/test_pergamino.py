@@ -98,16 +98,16 @@ def test_textures_named_in_the_code_exist_and_are_powers_of_two():
 
 def test_a_newer_copy_wins_and_an_older_one_steps_aside(game):
     src = LIB.read_text(encoding="utf-8")
-    older = src.replace("local VERSION = 4", "local VERSION = 1")
+    older = src.replace("local VERSION = 5", "local VERSION = 1")
     game.load("OtherAddon", older)
     P = game.lua.globals().Pergamino
     assert (
-        P.VERSION == 4 and "TestAddon" in P.MEDIA
+        P.VERSION == 5 and "TestAddon" in P.MEDIA
     )  # the older copy did not replace it
-    newer = src.replace("local VERSION = 4", "local VERSION = 5")
+    newer = src.replace("local VERSION = 5", "local VERSION = 6")
     game.load("NewAddon", newer)
     P = game.lua.globals().Pergamino
-    assert P.VERSION == 5 and "NewAddon" in P.MEDIA
+    assert P.VERSION == 6 and "NewAddon" in P.MEDIA
 
 
 def test_book_has_two_pages_a_title_a_seal_and_bookmarks(game):
@@ -384,3 +384,46 @@ def test_text_area_keeps_ink_after_set_text(game):
     assert game.run("return MOCK.area.box:GetEditBox() ~= nil") is True
     assert game.run("local e = MOCK.area.box:GetEditBox(); return e.fontName == P.fonts.body") is True
     assert game.run("local e = MOCK.area.box:GetEditBox(); return e.textColor ~= nil and math.abs(e.textColor.r - P.INK[1]) < 1e-6") is True
+
+
+def test_guard_keeps_errors_says_so_once_and_shows_a_page(game):
+    game.run("""
+        MOCK.db = { }
+        MOCK.g = P.Guard("Prueba", MOCK.db, { slash = "/prueba" })
+        MOCK.boom = MOCK.g.Wrap(function(a, b) error("se rompio " .. a) end, "boton")
+        MOCK.fine = MOCK.g.Wrap(function(a, b) return a + b, "ok" end, "suma")
+    """)
+    assert game.run("return MOCK.fine(2, 3)") == (5, "ok")
+    assert game.run("return MOCK.boom('x')") is None  # never re-raised
+    game.run("MOCK.boom('x'); MOCK.boom('y')")
+    errs = game.run("return MOCK.g.Errors()")
+    assert len(errs) == 2  # 'x' twice folded into one, 'y' separate; newest first
+    assert errs[1].message.endswith("se rompio y") and errs[1].count == 1 and errs[1].label == "boton"
+    assert errs[2].count == 2 and "se rompio x" in errs[2].message
+    assert errs[1].stack != ""  # a trimmed traceback travels with it
+    assert len(errs[1].stack.split("\n")) <= 6
+    chat = [c for c in game.m.chat.values() if "Prueba" in c]
+    assert chat == ["Prueba: tuvo un error. /prueba errores lo muestra para copiarlo."]
+    # the tenth error pushes the oldest out
+    game.run("for i = 1, 12 do MOCK.g.Wrap(function() error('e' .. i) end, 'loop')() end")
+    assert game.run("return #MOCK.g.Errors()") == 10
+    assert game.run("return MOCK.g.Errors()[1].message").endswith("e12")
+    # Install guards the frame's OnEvent under the event's name, and the slash handler
+    game.run("""
+        MOCK.f = CreateFrame("Frame")
+        MOCK.f:SetScript("OnEvent", function(self, event, arg) if arg == "bad" then error("evento malo") end MOCK.lastEvent = event .. arg end)
+        MOCK.slash = MOCK.g.Install(MOCK.f, function(msg) if msg == "bad" then error("slash malo") end return "ok:" .. msg end)
+        MOCK.f:GetScript("OnEvent")(MOCK.f, "PLAYER_LOGIN", "good")
+        MOCK.f:GetScript("OnEvent")(MOCK.f, "PLAYER_LOGIN", "bad")
+    """)
+    assert game.m.lastEvent == "PLAYER_LOGINgood"
+    assert game.run("return MOCK.g.Errors()[1].label") == "PLAYER_LOGIN"
+    assert game.run("return MOCK.slash('hola')") == "ok:hola"
+    game.run("MOCK.slash('bad')")
+    assert game.run("return MOCK.g.Errors()[1].label") == "slash"
+    # the page lists them and puts the chosen one in the text area; Borrar empties everything
+    game.run("MOCK.page = MOCK.g.Page(UIParent)")
+    assert game.run("return MOCK.page.empty:IsShown()") is False
+    assert game.run("return MOCK.page.area.box._text") is not None
+    game.run("MOCK.page.clear:GetScript('OnClick')()")
+    assert game.run("return #MOCK.g.Errors(), MOCK.page.empty:IsShown()") == (0, True)

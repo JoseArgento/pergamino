@@ -42,6 +42,7 @@ Todo devuelve frames normales de WoW; los puntos y tamaños los ponés vos.
 | `Pergamino.Tag(parent, texto, kind)` | Etiqueta chica de color según `Pergamino.KIND_COLORS` (`level`, `boss`, `death`, `note`, `loot`, `zone`, …); `:Set(texto, kind)`. |
 | `Pergamino.Card(name, ancho, alto, título)` | Una tarjeta de pergamino suelta (para vistas previas); `.body`, `.close`. |
 | `Pergamino.Apply(frame, rol)` | Pone la fuente del rol a todos los textos de un frame que no se armó con la librería. |
+| `Pergamino.Guard(addon, db, { slash, notice, chat, L })` | Los errores propios del addon, guardados y a la vista: `guard.Wrap(fn, etiqueta)` devuelve la función protegida (un error no llega al jugador como popup: se guarda en `db.errors`, hasta 10, los repetidos suman `count`, y se avisa en el chat una sola vez por sesión); `guard.Install(eventFrame, slashFn)` protege el `OnEvent` del frame (etiqueta = el evento) y devuelve el slash protegido; `guard.Errors()`, `guard.Clear()`; `guard.Page(izq, der)` arma la página para copiarlos (lista a la izquierda, el elegido en un área de texto a la derecha; con un solo parent, lista arriba y texto abajo) y devuelve `{ list, area, clear, Refresh }`. `L = { title, empty, clear, copy }` traduce los textos. |
 | `Pergamino.fonts.*` | Los objetos `Font` (`PergaminoBody`, `PergaminoHeading`, …) para `SetFontObject`. |
 | `Pergamino.INK`, `.INK_SOFT`, `.CRIMSON`, `.GOLD`, `.GOLD_DEEP`, `.LINK`, `.PARCHMENT` | Las tintas, como `{ r, g, b }`. |
 

@@ -9,7 +9,7 @@
 -- No Blizzard frame templates: every piece is drawn here.
 
 local ADDON = ...
-local VERSION = 4
+local VERSION = 5
 
 if Pergamino and (Pergamino.VERSION or 0) >= VERSION then
 	return
@@ -852,4 +852,204 @@ function P.MinimapButton(name, opts)
 	b:SetAngle(opts.angle)
 	b:SetShown(opts.shown ~= false)
 	return b
+end
+
+-- the addon's own errors -----------------------------------------------------------------------------------
+-- A guard wraps an addon's handlers so a Lua error never reaches the player as a popup: it is kept in the
+-- addon's saved variables (up to GUARD_MAX, repeats counted), said once in the chat, and shown on a page of
+-- pergamino to copy into an issue. opts = { slash = "/bita", notice = "%s: tuvo un error. %s errores lo muestra.",
+-- chat = function(text) end, L = { title, empty, clear, copy } }. Returns the guard:
+--   guard.Wrap(fn, label)            → fn, guarded; errors are kept under label
+--   guard.Install(eventFrame, slashFn) → wraps the frame's OnEvent (label = the event); returns slashFn guarded
+--   guard.Errors()                   → db.errors, newest first
+--   guard.Clear()
+--   guard.Page(left, right)          → the error page: list on the left, the chosen one to copy on the right
+--                                      (with one parent, list above and text below); returns { list, area, Refresh }
+local GUARD_MAX, GUARD_LINES = 10, 6
+function P.Guard(addonName, db, opts)
+	opts = opts or {}
+	db.errors = db.errors or {}
+	local g = { addon = addonName, db = db, told = false, opts = opts }
+	local L = opts.L or {}
+
+	local function say(text)
+		if opts.chat then
+			opts.chat(text)
+		elseif DEFAULT_CHAT_FRAME then
+			DEFAULT_CHAT_FRAME:AddMessage(text)
+		elseif print then
+			print(text)
+		end
+	end
+
+	local function trim(trace)
+		local out, n = {}, 0
+		for ln in tostring(trace or ""):gmatch("[^\n]+") do
+			ln = ln:gsub("^%s+", "")
+			if ln ~= "" and ln ~= "stack traceback:" then
+				n = n + 1
+				if n > GUARD_LINES then
+					break
+				end
+				out[#out + 1] = ln
+			end
+		end
+		return table.concat(out, "\n")
+	end
+
+	function g.Record(label, message, stack)
+		message = tostring(message)
+		for _, e in ipairs(db.errors) do
+			if e.message == message and e.label == label then
+				e.count = (e.count or 1) + 1
+				e.when = time()
+				return e
+			end
+		end
+		local e = { when = time(), label = label or "?", message = message, stack = stack or "", count = 1 }
+		table.insert(db.errors, 1, e)
+		while #db.errors > GUARD_MAX do
+			table.remove(db.errors)
+		end
+		if not g.told then
+			g.told = true
+			say(string.format(opts.notice or "%s: tuvo un error. %s errores lo muestra para copiarlo.", addonName, opts.slash or "/" .. addonName:lower()))
+		end
+		if g.OnError then
+			g.OnError(e)
+		end
+		return e
+	end
+
+	local function handler(err)
+		local trace = debug and debug.traceback and debug.traceback("", 2) or ""
+		return { message = err, stack = trim(trace) }
+	end
+
+	function g.Wrap(fn, label)
+		if type(fn) ~= "function" then
+			return fn
+		end
+		return function(...)
+			local args, n = { ... }, select("#", ...)
+			local results = { xpcall(function()
+				return fn(unpack(args, 1, n))
+			end, handler) }
+			if results[1] then
+				return unpack(results, 2)
+			end
+			local info = results[2]
+			if type(info) == "table" then
+				g.Record(label, info.message, info.stack)
+			else
+				g.Record(label, info, "")
+			end
+			return nil
+		end
+	end
+
+	function g.Install(eventFrame, slashFn)
+		if eventFrame and eventFrame.GetScript then
+			local onEvent = eventFrame:GetScript("OnEvent")
+			if onEvent then
+				local wrapped = {}
+				eventFrame:SetScript("OnEvent", function(self, event, ...)
+					local w = wrapped[event]
+					if not w then
+						w = g.Wrap(onEvent, event)
+						wrapped[event] = w
+					end
+					return w(self, event, ...)
+				end)
+			end
+		end
+		return slashFn and g.Wrap(slashFn, "slash") or nil
+	end
+
+	function g.Errors()
+		return db.errors
+	end
+
+	function g.Clear()
+		for i = #db.errors, 1, -1 do
+			db.errors[i] = nil
+		end
+	end
+
+	local function text(e)
+		local d = date and date("%Y-%m-%d %H:%M", e.when) or tostring(e.when)
+		local head = addonName .. " · " .. d .. " · " .. tostring(e.label)
+		if (e.count or 1) > 1 then
+			head = head .. " · x" .. e.count
+		end
+		return head .. "\n" .. e.message .. (e.stack ~= "" and ("\n" .. e.stack) or "")
+	end
+	g.Text = text
+
+	function g.Page(left, right)
+		local page = {}
+		local listParent, areaParent = left, right or left
+		local title = P.Label(listParent, L.title or "Errores", "heading")
+		title:SetPoint("TOPLEFT")
+		local rule = P.Rule(listParent)
+		rule:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
+		rule:SetPoint("RIGHT")
+		local empty = P.Label(listParent, L.empty or "Sin errores guardados.", "muted")
+		empty:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -10)
+		local list = P.List(listParent, 26, function(row, item)
+			if not row.text then
+				row.text = P.Label(row, "", "body")
+				row.text:SetPoint("LEFT", 4, 0)
+				row.text:SetPoint("RIGHT", -4, 0)
+				row.text:SetWordWrap(false)
+			end
+			local d = date and date("%d/%m %H:%M", item.when) or ""
+			local first = tostring(item.message):match("^[^\n]*") or ""
+			row.text:SetText(d .. " · " .. tostring(item.label) .. " · " .. first .. ((item.count or 1) > 1 and (" (x" .. item.count .. ")") or ""))
+		end, function(item)
+			page.chosen = item
+			page.Refresh()
+		end)
+		list.box:SetPoint("TOPLEFT", rule, "BOTTOMLEFT", 0, -8)
+		if right then
+			list.box:SetPoint("BOTTOMRIGHT", listParent, "BOTTOMRIGHT", -16, 0)
+		else
+			list.box:SetPoint("RIGHT", listParent, "RIGHT", -16, 0)
+			list.box:SetHeight(26 * 4)
+		end
+		local area = P.TextArea(areaParent)
+		if right then
+			local hint = P.Label(areaParent, L.copy or "Seleccioná el texto y copialo con Ctrl+C.", "muted")
+			hint:SetPoint("TOPLEFT")
+			hint:SetPoint("TOPRIGHT")
+			area:SetPoint("TOPLEFT", hint, "BOTTOMLEFT", 0, -8)
+		else
+			area:SetPoint("TOPLEFT", list.box, "BOTTOMLEFT", 0, -10)
+		end
+		area:SetPoint("BOTTOMRIGHT", areaParent, "BOTTOMRIGHT", 0, 32)
+		local clear = P.Button(areaParent, L.clear or "Borrar", 110, function()
+			g.Clear()
+			page.chosen = nil
+			page.Refresh()
+		end)
+		clear:SetPoint("BOTTOMRIGHT", areaParent, "BOTTOMRIGHT", 0, 0)
+		function page.Refresh()
+			local errors = db.errors
+			empty:SetShown(#errors == 0)
+			list:SetData(errors)
+			if not page.chosen and errors[1] then
+				page.chosen = errors[1]
+			end
+			local chosen = page.chosen
+			if area.box.SetText then
+				area.box:SetText(chosen and text(chosen) or "")
+			end
+			clear:SetShown(#errors > 0)
+		end
+		page.list, page.area, page.clear, page.empty = list, area, clear, empty
+		page.Refresh()
+		return page
+	end
+
+	return g
 end
