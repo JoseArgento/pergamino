@@ -270,11 +270,20 @@ function Frame:Insert(t)
 	end
 end
 function Frame:SetFocus()
+	if MOCK.focus and MOCK.focus ~= self then
+		MOCK.focus:ClearFocus()
+	end
 	MOCK.focus = self
+	if self._scripts.OnEditFocusGained then
+		self._scripts.OnEditFocusGained(self)
+	end
 end
 function Frame:ClearFocus()
 	if MOCK.focus == self then
 		MOCK.focus = nil
+		if self._scripts.OnEditFocusLost then
+			self._scripts.OnEditFocusLost(self)
+		end
 	end
 end
 function Frame:HasFocus()
