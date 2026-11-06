@@ -232,6 +232,12 @@ function Frame:SetShown(v)
 		self:Hide()
 	end
 end
+function Frame:IsMouseOver()
+	return self._mouseOver == true
+end
+function Frame:GetName()
+	return self._name
+end
 function Frame:IsShown()
 	return self._shown
 end

@@ -98,16 +98,16 @@ def test_textures_named_in_the_code_exist_and_are_powers_of_two():
 
 def test_a_newer_copy_wins_and_an_older_one_steps_aside(game):
     src = LIB.read_text(encoding="utf-8")
-    older = src.replace("local VERSION = 6", "local VERSION = 1")
+    older = src.replace("local VERSION = 7", "local VERSION = 1")
     game.load("OtherAddon", older)
     P = game.lua.globals().Pergamino
     assert (
-        P.VERSION == 6 and "TestAddon" in P.MEDIA
+        P.VERSION == 7 and "TestAddon" in P.MEDIA
     )  # the older copy did not replace it
-    newer = src.replace("local VERSION = 6", "local VERSION = 7")
+    newer = src.replace("local VERSION = 7", "local VERSION = 8")
     game.load("NewAddon", newer)
     P = game.lua.globals().Pergamino
-    assert P.VERSION == 7 and "NewAddon" in P.MEDIA
+    assert P.VERSION == 8 and "NewAddon" in P.MEDIA
 
 
 def test_book_has_two_pages_a_title_a_seal_and_bookmarks(game):
@@ -331,8 +331,18 @@ def test_minimap_button_sits_on_the_rim_drags_around_it_and_clicks(game):
         b.icon.texture.endswith("Media/icon")
         and b.icon.mask.endswith("Media\\mask")
         and b.ring.texture.endswith("ring")
+        and b.disc.texture.endswith("disc")
+        and b.shadow.texture.endswith("shadow")
+        and b.highlight.texture.endswith("ring_hl")
     )
     assert b.angle == 90 and b._shown is True
+    # 34 px, the picture at ~70 %
+    assert game.run("return MOCK.mini:GetWidth(), MOCK.mini.icon:GetWidth()") == (34, 23)
+    # pressed: the picture dips a pixel and comes back
+    game.run("MOCK.mini:GetScript('OnMouseDown')(MOCK.mini)")
+    assert game.run("local p = MOCK.mini.icon._points[#MOCK.mini.icon._points]; return p[2], p[3]") == (1, -1)
+    game.run("MOCK.mini:GetScript('OnMouseUp')(MOCK.mini)")
+    assert game.run("local p = MOCK.mini.icon._points[#MOCK.mini.icon._points]; return p[2], p[3]") == (0, 0)
     # 90 degrees = straight above the minimap's centre, 5 px past its edge (70 + 5)
     pts = game.run("return MOCK.mini._points")
     assert pts is not None
@@ -469,3 +479,69 @@ def test_accept_links_feeds_the_box_and_stops_the_stack_split(game):
     game.run("MOCK.box2 = P.Edit(UIParent, 200, {}); P.AcceptLinks(MOCK.box2); MOCK.box:ClearFocus(); MOCK.box2:SetFocus()")
     assert game.run("return ChatFrameUtil.InsertLink('|Hitem:3|h[z]|h')") is True
     assert game.run("return MOCK.box2:GetText()") == "|Hitem:3|h[z]|h"
+
+
+def test_minimap_right_click_shortcut_and_guard(game):
+    game.run("""
+        MOCK.db = { errors = {} }
+        MOCK.g = P.Guard("TestAddon", MOCK.db, { slash = "/t", chat = function() end })
+        MOCK.left, MOCK.right = 0, 0
+        MOCK.b = P.MinimapButton("TestMini3", {
+            icon = "x",
+            onClick = function(button) MOCK.left = MOCK.left + 1; error("boom") end,
+            onRightClick = function() MOCK.right = MOCK.right + 1 end,
+            guard = MOCK.g,
+        })
+    """)
+    game.run("MOCK.b:GetScript('OnClick')(MOCK.b, 'RightButton')")
+    assert game.run("return MOCK.left, MOCK.right") == (0, 1)
+    # a left click that errors is kept by the guard instead of reaching the player
+    game.run("MOCK.b:GetScript('OnClick')(MOCK.b, 'LeftButton')")
+    assert game.run("return MOCK.left, #MOCK.db.errors, MOCK.db.errors[1].label") == (1, 1, "minimap")
+
+
+def test_guard_install_wraps_the_clicks_of_the_given_buttons(game):
+    game.run("""
+        MOCK.db2 = { errors = {} }
+        local g = P.Guard("TestAddon", MOCK.db2, { slash = "/t", chat = function() end })
+        MOCK.btn = CreateFrame("Button", "TestGuardedButton")
+        MOCK.btn:SetScript("OnClick", function() error("click boom") end)
+        g.Install(nil, nil, { MOCK.btn })
+    """)
+    game.run("MOCK.btn:GetScript('OnClick')(MOCK.btn, 'LeftButton')")
+    assert game.run("return #MOCK.db2.errors, MOCK.db2.errors[1].label") == (1, "TestGuardedButton")
+
+
+def test_the_hub_merges_the_family_into_one_button_with_a_menu(game):
+    game.run("""
+        MOCK.opened = {}
+        MOCK.b1 = P.MinimapButton("HubA", { icon = "a", onClick = function(btn) table.insert(MOCK.opened, "A:" .. btn) end,
+            hub = { addon = "AddonA", label = "Alfa", order = 20 } })
+        MOCK.b2 = P.MinimapButton("HubB", { icon = "b", onClick = function() table.insert(MOCK.opened, "B") end,
+            onRightClick = function() table.insert(MOCK.opened, "B-right") end,
+            hub = { addon = "AddonB", label = "Beta", order = 10 } })
+    """)
+    # registered in order, both buttons shown, no hub button yet
+    assert [e["label"] for e in game.run("return P.MinimapHub.Entries()").values()] == ["Beta", "Alfa"]
+    assert game.run("return MOCK.b1:IsShown(), MOCK.b2:IsShown(), P.MinimapHub.button") == (True, True, None)
+    # merged: the two hide, the one hub button shows with the lib's picture
+    game.run("P.MinimapHub.SetMerged(true)")
+    assert game.run("return MOCK.b1:IsShown(), MOCK.b2:IsShown(), P.MinimapHub.button:IsShown()") == (False, False, True)
+    assert game.run("return P.MinimapHub.button.icon.texture").endswith("icon_hub")
+    # the menu: one row per addon, click opens, right click does the right action
+    game.run("P.MinimapHub.button:GetScript('OnClick')(P.MinimapHub.button, 'LeftButton')")
+    assert game.run("return P.MinimapHub.menu:IsShown(), #P.MinimapHub.menu.rows") == (True, 2)
+    assert game.run("return P.MinimapHub.menu.rows[1].label:GetText(), P.MinimapHub.menu.rows[2].label:GetText()") == ("Beta", "Alfa")
+    game.run("local r = P.MinimapHub.menu.rows[1]; r:GetScript('OnClick')(r, 'RightButton')")
+    game.run("local r = P.MinimapHub.menu.rows[2]; r:GetScript('OnClick')(r, 'LeftButton')")
+    assert list(game.run("return MOCK.opened").values()) == ["B-right", "A:LeftButton"]
+    assert game.run("return P.MinimapHub.menu:IsShown()") is False
+    # back to separate buttons
+    game.run("P.MinimapHub.SetMerged(false)")
+    assert game.run("return MOCK.b1:IsShown(), MOCK.b2:IsShown(), P.MinimapHub.button:IsShown()") == (True, True, False)
+    # a hidden-by-setting button stays hidden when un-merging
+    game.run("MOCK.b2.wanted = false; P.MinimapHub.SetMerged(true); P.MinimapHub.SetMerged(false)")
+    assert game.run("return MOCK.b2:IsShown()") is False
+    # re-registering the same addon replaces its entry instead of duplicating it
+    game.run("P.MinimapHub.Register('AddonA', { label = 'Alfa 2', order = 5 })")
+    assert [e["label"] for e in game.run("return P.MinimapHub.Entries()").values()] == ["Alfa 2", "Beta"]

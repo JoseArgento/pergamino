@@ -266,26 +266,95 @@ def pill() -> Image.Image:
     return img
 
 
-def ring() -> Image.Image:
-    size = 64
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    c = size / 2
-    # leather band: the leather texture's grain cut into a ring
-    band = tint(fractal(size, size, 77), LEATHER_DARK, LEATHER_LIGHT).convert("RGBA")
-    hole = Image.new("L", (size, size), 0)
+def _radial(size: int, inner: float, outer: float) -> Image.Image:
+    """An 'L' band mask: 255 between the two radii (in px from the centre), soft edges."""
+    big = size * 4
+    m = Image.new("L", (big, big), 0)
+    d = ImageDraw.Draw(m)
+    c = big / 2
+    d.ellipse((c - outer * 4, c - outer * 4, c + outer * 4, c + outer * 4), fill=255)
+    d.ellipse((c - inner * 4, c - inner * 4, c + inner * 4, c + inner * 4), fill=0)
+    return m.resize((size, size), Image.LANCZOS)
+
+
+def _bevel(size: int, light_angle: float = 135.0) -> Image.Image:
+    """A diagonal light: bright towards the upper left, dark towards the lower right ('L')."""
+    img = Image.new("L", (size, size))
+    px = img.load()
+    ax, ay = math.cos(math.radians(light_angle)), -math.sin(math.radians(light_angle))
+    for y in range(size):
+        for x in range(size):
+            nx, ny = (x - size / 2) / (size / 2), (y - size / 2) / (size / 2)
+            v = 0.5 + 0.5 * (nx * ax + ny * ay)  # 1 on the lit side, 0 on the shaded side
+            px[x, y] = int(max(0, min(1, v)) * 255)
+    return img
+
+
+def _ring(light: bool) -> Image.Image:
+    """The gold ring of the minimap button: a bevelled band (lit upper left, shaded lower right), a dark
+    fillet inside, a thin dark edge outside. Drawn at 4x and downsampled so the edges are smooth.
+    'light' is the hover version."""
+    size, k = 64, 4
+    big = size * k
+    c = big / 2
+    img = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    bev = _bevel(big)
+    lo, hi = (112, 78, 18), (250, 226, 140)
+    if light:
+        lo, hi = (170, 128, 40), (255, 244, 196)
+    band = tint(bev, lo, hi).convert("RGBA")
+    grain = noise(big, big, 3, 91).point(lambda v: 235 + v * 20 // 255)
+    band = ImageChops.multiply(band, Image.merge("RGBA", (grain, grain, grain, Image.new("L", (big, big), 255))))
+    hole = Image.new("L", (big, big), 0)
     hd = ImageDraw.Draw(hole)
-    hd.ellipse((c - 31, c - 31, c + 31, c + 31), fill=255)
-    hd.ellipse((c - 22, c - 22, c + 22, c + 22), fill=0)
+    hd.ellipse((c - 30.5 * k, c - 30.5 * k, c + 30.5 * k, c + 30.5 * k), fill=255)
+    hd.ellipse((c - 22.5 * k, c - 22.5 * k, c + 22.5 * k, c + 22.5 * k), fill=0)
     band.putalpha(hole)
     img.alpha_composite(band)
     d = ImageDraw.Draw(img)
-    # gold fillets at both edges of the band, a darker line outside them
-    d.ellipse((c - 31, c - 31, c + 31, c + 31), outline=(60, 30, 14, 255), width=1)
-    d.ellipse((c - 29, c - 29, c + 29, c + 29), outline=GOLD + (255,), width=2)
-    d.ellipse((c - 23, c - 23, c + 23, c + 23), outline=GOLD_DARK + (255,), width=2)
-    # a highlight on the upper left of the band
-    d.arc((c - 27, c - 27, c + 27, c + 27), 200, 260, fill=GOLD_LIGHT + (160,), width=2)
-    return img.filter(ImageFilter.GaussianBlur(0.3))
+    # the crest of the band: a bright line on the lit side, a dark one on the shaded side
+    d.arc((c - 26.5 * k, c - 26.5 * k, c + 26.5 * k, c + 26.5 * k), 190, 280, fill=hi + (200,), width=k)
+    d.arc((c - 26.5 * k, c - 26.5 * k, c + 26.5 * k, c + 26.5 * k), 10, 100, fill=lo + (160,), width=k)
+    # the inner lip: a dark fillet, then a thin lit line (the disc sits below it)
+    d.ellipse((c - 22.5 * k, c - 22.5 * k, c + 22.5 * k, c + 22.5 * k), outline=(40, 22, 10, 255), width=k + 2)
+    d.ellipse((c - 24 * k, c - 24 * k, c + 24 * k, c + 24 * k), outline=hi + (110,), width=k // 2)
+    # the outer edge: dark, with a faint lit rim on top
+    d.ellipse((c - 30.5 * k, c - 30.5 * k, c + 30.5 * k, c + 30.5 * k), outline=(36, 20, 8, 255), width=k + 2)
+    d.arc((c - 29.5 * k, c - 29.5 * k, c + 29.5 * k, c + 29.5 * k), 200, 260, fill=hi + (120,), width=k // 2)
+    return img.resize((size, size), Image.LANCZOS)
+
+
+def ring() -> Image.Image:
+    return _ring(False)
+
+
+def ring_hl() -> Image.Image:
+    return _ring(True)
+
+
+def disc() -> Image.Image:
+    """The dark leather inside the ring, with a vignette, for the icon to sit on."""
+    size = 64
+    base = tint(fractal(size, size, 123), LEATHER_DARK, LEATHER_LIGHT).convert("RGBA")
+    # vignette: darker towards the edge
+    vig = Image.new("L", (size, size), 0)
+    px = vig.load()
+    for y in range(size):
+        for x in range(size):
+            r = math.hypot(x - size / 2 + 0.5, y - size / 2 + 0.5) / (size / 2)
+            px[x, y] = int(255 * max(0.18, 1 - r * r * r * 1.1))
+    base = ImageChops.multiply(base, Image.merge("RGBA", (vig, vig, vig, Image.new("L", (size, size), 255))))
+    base.putalpha(_radial(size, 0, 23.5))
+    return base
+
+
+def shadow() -> Image.Image:
+    """A soft round shadow to lay under the button."""
+    size = 64
+    m = Image.new("L", (size, size), 0)
+    ImageDraw.Draw(m).ellipse((8, 10, size - 8, size - 4), fill=170)
+    m = m.filter(ImageFilter.GaussianBlur(4))
+    return Image.merge("RGBA", (Image.new("L", (size, size), 0),) * 3 + (m,))
 
 
 def mask() -> Image.Image:
@@ -293,6 +362,24 @@ def mask() -> Image.Image:
     img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     ImageDraw.Draw(img).ellipse((9, 9, size - 10, size - 10), fill=(255, 255, 255, 255))
     return img
+
+
+def icon_hub() -> Image.Image:
+    """The one button for the whole family: a closed cream book on leather (64x64, square: it gets the
+    round mask in-game)."""
+    size, k = 64, 4
+    big = size * k
+    img = tint(fractal(big, big, 55), LEATHER_DARK, LEATHER_LIGHT).convert("RGBA")
+    d = ImageDraw.Draw(img)
+    cream, edge, pages = (242, 227, 192, 255), (58, 35, 19, 255), (214, 190, 142, 255)
+    # page block (slightly offset: the pages peek out on the right), the cover on top
+    d.rounded_rectangle((15 * k, 13 * k, 50 * k, 50 * k), radius=2 * k, fill=pages, outline=edge, width=k)
+    d.rounded_rectangle((13 * k, 11 * k, 47 * k, 48 * k), radius=2 * k, fill=cream, outline=edge, width=k)
+    d.rectangle((13 * k, 11 * k, 20 * k, 48 * k), fill=(84, 44, 26, 255), outline=edge, width=k)
+    d.rectangle((24 * k, 19 * k, 43 * k, 25 * k), fill=CRIMSON + (255,))
+    for y in (31, 36, 41):
+        d.line((24 * k, y * k, 42 * k, y * k), fill=(120, 95, 60, 255), width=k)
+    return img.resize((size, size), Image.LANCZOS)
 
 
 def main() -> None:
@@ -308,7 +395,11 @@ def main() -> None:
         ("check", check),
         ("pill", pill),
         ("ring", ring),
+        ("ring_hl", ring_hl),
+        ("disc", disc),
+        ("shadow", shadow),
         ("mask", mask),
+        ("icon_hub", icon_hub),
     ]:
         img = make().convert("RGBA")
         assert (

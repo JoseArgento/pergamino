@@ -9,7 +9,7 @@
 -- No Blizzard frame templates: every piece is drawn here.
 
 local ADDON = ...
-local VERSION = 6
+local VERSION = 7
 
 if Pergamino and (Pergamino.VERSION or 0) >= VERSION then
 	return
@@ -761,28 +761,47 @@ function P.Card(name, width, height, title)
 end
 
 -- the minimap button ------------------------------------------------------------------------------------
--- A round 32 px button on the rim of the minimap, in the addon's own leather ring, that can be dragged
--- around the rim (no LibDBIcon: nothing to depend on). opts:
---   icon     = "Interface\\AddOns\\X\\Media\\icon"  the picture inside (rounded by Media/mask)
---   onClick  = function(button) end                "LeftButton" or "RightButton"
---   tooltip  = function(tip) end                   fills GameTooltip (AddLine…) on hover
---   angle    = degrees                             where it sits (0 = right, 90 = top); default 200
---   onMove   = function(angle) end                 after a drag, to save the angle
---   shown    = bool                                false hides it (default true)
--- Returns the Button with :SetAngle(deg), .angle, .icon, .ring; SetShown as any frame.
+-- A round 34 px button on the rim of the minimap, like the game's own: a bevelled gold ring, a dark
+-- leather disc under the picture, a soft shadow, a brighter ring on hover and a 1 px dip when pressed.
+-- It can be dragged around the rim (no LibDBIcon: nothing to depend on). opts:
+--   icon         = "Interface\AddOns\X\Media\icon"  the picture inside (rounded by Media/mask), ~70 %
+--   onClick      = function(button) end                "LeftButton" or "RightButton"
+--   onRightClick = function() end                      shortcut: called instead of onClick("RightButton")
+--   tooltip      = function(tip) end                   fills GameTooltip (AddLine…) on hover
+--   angle        = degrees                             where it sits (0 = right, 90 = top); default 200
+--   onMove       = function(angle) end                 after a drag, to save the angle
+--   shown        = bool                                false hides it (default true)
+--   guard        = a P.Guard instance                  wraps onClick/onRightClick/tooltip (errors kept, no popup)
+--   hub          = { addon = "X", label = "Bitácora", order = 10 }  also registers it in the family hub
+-- Returns the Button with :SetAngle(deg), .angle, .icon, .ring, .disc; SetShown as any frame.
 local MINIMAP_RADIUS_EXTRA = 5
+local MINIMAP_SIZE = 34
 
 function P.MinimapButton(name, opts)
 	opts = opts or {}
+	local g = opts.guard
+	local onClick = g and g.Wrap(opts.onClick, "minimap") or opts.onClick
+	local onRight = g and g.Wrap(opts.onRightClick, "minimap") or opts.onRightClick
+	local tooltip = g and g.Wrap(opts.tooltip, "minimap tooltip") or opts.tooltip
 	local b = CreateFrame("Button", name, Minimap)
-	b:SetSize(32, 32)
+	b:SetSize(MINIMAP_SIZE, MINIMAP_SIZE)
 	b:SetFrameStrata("MEDIUM")
 	b:SetFrameLevel(8)
 	b:SetMovable(true)
 	b:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 	b:RegisterForDrag("LeftButton")
+	local shadow = b:CreateTexture(nil, "BACKGROUND", nil, -2)
+	shadow:SetPoint("TOPLEFT", -2, -1)
+	shadow:SetPoint("BOTTOMRIGHT", 2, -3)
+	shadow:SetTexture(P.MEDIA .. "shadow")
+	b.shadow = shadow
+	local disc = b:CreateTexture(nil, "BACKGROUND", nil, -1)
+	disc:SetAllPoints()
+	disc:SetTexture(P.MEDIA .. "disc")
+	b.disc = disc
+	local iconSize = math.floor(MINIMAP_SIZE * 0.7)
 	local icon = b:CreateTexture(nil, "ARTWORK")
-	icon:SetSize(22, 22)
+	icon:SetSize(iconSize, iconSize)
 	icon:SetPoint("CENTER", 0, 0)
 	icon:SetTexture(opts.icon)
 	if icon.SetMask then
@@ -794,12 +813,10 @@ function P.MinimapButton(name, opts)
 	ring:SetTexture(P.MEDIA .. "ring")
 	b.ring = ring
 	local hl = b:CreateTexture(nil, "HIGHLIGHT")
-	hl:SetSize(22, 22)
-	hl:SetPoint("CENTER", 0, 0)
-	hl:SetColorTexture(1, 0.9, 0.6, 0.18)
-	if hl.SetMask then
-		hl:SetMask(P.MEDIA .. "mask")
-	end
+	hl:SetAllPoints()
+	hl:SetTexture(P.MEDIA .. "ring_hl")
+	hl:SetAlpha(0.85)
+	b.highlight = hl
 
 	function b:SetAngle(deg)
 		self.angle = deg or 200
@@ -828,20 +845,29 @@ function P.MinimapButton(name, opts)
 			opts.onMove(self.angle)
 		end
 	end)
+	-- pressed: the picture dips a pixel
+	b:SetScript("OnMouseDown", function(self)
+		self.icon:SetPoint("CENTER", 1, -1)
+	end)
+	b:SetScript("OnMouseUp", function(self)
+		self.icon:SetPoint("CENTER", 0, 0)
+	end)
 	b:SetScript("OnClick", function(self, button)
 		if self.dragging then
 			return
 		end
-		if opts.onClick then
-			opts.onClick(button)
+		if button == "RightButton" and onRight then
+			onRight()
+		elseif onClick then
+			onClick(button)
 		end
 	end)
 	b:SetScript("OnEnter", function(self)
-		if not opts.tooltip or not GameTooltip then
+		if not tooltip or not GameTooltip then
 			return
 		end
 		GameTooltip:SetOwner(self, "ANCHOR_LEFT")
-		opts.tooltip(GameTooltip)
+		tooltip(GameTooltip)
 		GameTooltip:Show()
 	end)
 	b:SetScript("OnLeave", function()
@@ -850,8 +876,237 @@ function P.MinimapButton(name, opts)
 		end
 	end)
 	b:SetAngle(opts.angle)
-	b:SetShown(opts.shown ~= false)
+	b.wanted = opts.shown ~= false
+	b:SetShown(b.wanted)
+	if opts.hub then
+		P.MinimapHub.Register(opts.hub.addon or name, {
+			icon = opts.icon,
+			label = opts.hub.label or opts.hub.addon or name,
+			order = opts.hub.order,
+			onClick = onClick,
+			onRightClick = onRight,
+			tooltip = tooltip,
+			button = b,
+		})
+	end
 	return b
+end
+
+-- the family hub ---------------------------------------------------------------------------------------
+-- Six addons, six buttons around the minimap is a lot. Each addon registers its button here; when the
+-- family is "merged" (one setting, owned by whichever addon the player changes it in, propagated here),
+-- the individual buttons hide and ONE button with the lib's own picture opens a small parchment menu
+-- with a row per addon: click opens it, right click does its right-click action.
+--   P.MinimapHub.Register(addonName, { icon, label, onClick(button), onRightClick, order, tooltip, button })
+--   P.MinimapHub.SetMerged(bool)   the addon that owns the setting calls it (and saves the value itself);
+--                                 every registered button follows
+--   P.MinimapHub.IsMerged()
+--   P.MinimapHub.SetAngle(deg) / OnMove(function(angle))  the merged button's place (the owner saves it)
+--   P.MinimapHub.Entries()         the registered addons, in order
+-- Pattern for the owner (any addon can be the owner; the last one to call SetMerged wins):
+--   in ADDON_LOADED: if settings.minimapMerged ~= nil then P.MinimapHub.SetMerged(settings.minimapMerged) end
+--   in its options:  settings.minimapMerged = v; P.MinimapHub.SetMerged(v)
+P.MinimapHub = P.MinimapHub or {}
+local Hub = P.MinimapHub
+Hub.entries = Hub.entries or {}
+Hub.merged = Hub.merged or false
+
+local function hubSort()
+	table.sort(Hub.entries, function(a, b)
+		local oa, ob = a.order or 100, b.order or 100
+		if oa ~= ob then
+			return oa < ob
+		end
+		return tostring(a.label) < tostring(b.label)
+	end)
+end
+
+local function hubApply()
+	for _, e in ipairs(Hub.entries) do
+		if e.button then
+			e.button:SetShown((not Hub.merged) and e.button.wanted ~= false)
+		end
+	end
+	if Hub.button then
+		Hub.button:SetShown(Hub.merged and #Hub.entries > 0)
+	end
+	if Hub.menu then
+		Hub.menu:Hide()
+	end
+end
+
+function Hub.Register(addonName, entry)
+	entry = entry or {}
+	entry.addon = addonName
+	for i, e in ipairs(Hub.entries) do
+		if e.addon == addonName then
+			Hub.entries[i] = entry
+			hubSort()
+			hubApply()
+			return entry
+		end
+	end
+	table.insert(Hub.entries, entry)
+	hubSort()
+	hubApply()
+	return entry
+end
+
+function Hub.Entries()
+	return Hub.entries
+end
+
+function Hub.IsMerged()
+	return Hub.merged
+end
+
+local HUB_ROW = 26
+local function hubMenu()
+	if Hub.menu then
+		return Hub.menu
+	end
+	local m = P.Card("PergaminoMinimapHubMenu", 190, 60, "")
+	m.title:Hide()
+	m.close:Hide()
+	m:SetFrameStrata("TOOLTIP")
+	m:SetMovable(false)
+	m:SetScript("OnDragStart", nil)
+	m:SetScript("OnDragStop", nil)
+	m.body:ClearAllPoints()
+	m.body:SetPoint("TOPLEFT", 12, -12)
+	m.body:SetPoint("BOTTOMRIGHT", -12, 12)
+	m.rows = {}
+	m:SetScript("OnLeave", function(self)
+		if not self:IsMouseOver() then
+			self:Hide()
+		end
+	end)
+	Hub.menu = m
+	return m
+end
+
+function Hub.Refresh()
+	local m = hubMenu()
+	for _, r in ipairs(m.rows) do
+		r:Hide()
+	end
+	for i, e in ipairs(Hub.entries) do
+		local r = m.rows[i]
+		if not r then
+			r = CreateFrame("Button", nil, m.body)
+			r:SetHeight(HUB_ROW)
+			r:SetPoint("LEFT")
+			r:SetPoint("RIGHT")
+			r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+			local hl = r:CreateTexture(nil, "HIGHLIGHT")
+			hl:SetAllPoints()
+			hl:SetColorTexture(P.INK[1], P.INK[2], P.INK[3], 0.08)
+			r.icon = r:CreateTexture(nil, "ARTWORK")
+			r.icon:SetSize(18, 18)
+			r.icon:SetPoint("LEFT", 2, 0)
+			if r.icon.SetMask then
+				r.icon:SetMask(P.MEDIA .. "mask")
+			end
+			r.label = P.Label(r, "", "body")
+			r.label:SetPoint("LEFT", r.icon, "RIGHT", 8, 0)
+			r.label:SetPoint("RIGHT")
+			r:SetScript("OnClick", function(self, button)
+				m:Hide()
+				local entry = self.entry
+				if button == "RightButton" and entry.onRightClick then
+					entry.onRightClick()
+				elseif entry.onClick then
+					entry.onClick(button)
+				end
+			end)
+			r:SetScript("OnEnter", function(self)
+				if self.entry.tooltip and GameTooltip then
+					GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+					self.entry.tooltip(GameTooltip)
+					GameTooltip:Show()
+				end
+			end)
+			r:SetScript("OnLeave", function()
+				if GameTooltip then
+					GameTooltip:Hide()
+				end
+				if not m:IsMouseOver() then
+					m:Hide()
+				end
+			end)
+			m.rows[i] = r
+		end
+		r.entry = e
+		r.icon:SetTexture(e.icon)
+		r.label:SetText(e.label or e.addon)
+		r:ClearAllPoints()
+		r:SetPoint("TOPLEFT", 0, -(i - 1) * HUB_ROW)
+		r:SetPoint("RIGHT")
+		r:Show()
+	end
+	m:SetHeight(#Hub.entries * HUB_ROW + 24)
+	return m
+end
+
+function Hub.Toggle()
+	local m = Hub.Refresh()
+	if m:IsShown() then
+		m:Hide()
+		return
+	end
+	m:ClearAllPoints()
+	m:SetPoint("TOPRIGHT", Hub.button or Minimap, "BOTTOMLEFT", 0, 0)
+	m:Show()
+end
+
+local function hubButton()
+	if Hub.button then
+		return Hub.button
+	end
+	local b = P.MinimapButton("PergaminoMinimapHub", {
+		icon = P.MEDIA .. "icon_hub",
+		angle = Hub.angle or 200,
+		onClick = function()
+			Hub.Toggle()
+		end,
+		onRightClick = function()
+			Hub.Toggle()
+		end,
+		onMove = function(angle)
+			Hub.angle = angle
+			if Hub.onMove then
+				Hub.onMove(angle)
+			end
+		end,
+		tooltip = function(tip)
+			tip:SetText("Pergamino")
+			for _, e in ipairs(Hub.entries) do
+				tip:AddLine(e.label or e.addon, 1, 1, 1)
+			end
+		end,
+		shown = false,
+	})
+	Hub.button = b
+	return b
+end
+
+function Hub.SetMerged(v)
+	Hub.merged = v and true or false
+	if Hub.merged then
+		hubButton()
+	end
+	hubApply()
+end
+
+function Hub.SetAngle(deg)
+	Hub.angle = deg
+	if Hub.button then
+		Hub.button:SetAngle(deg)
+	end
+end
+
+function Hub.OnMove(fn)
+	Hub.onMove = fn
 end
 
 -- the addon's own errors -----------------------------------------------------------------------------------
@@ -860,7 +1115,8 @@ end
 -- pergamino to copy into an issue. opts = { slash = "/bita", notice = "%s: tuvo un error. %s errores lo muestra.",
 -- chat = function(text) end, L = { title, empty, clear, copy } }. Returns the guard:
 --   guard.Wrap(fn, label)            → fn, guarded; errors are kept under label
---   guard.Install(eventFrame, slashFn) → wraps the frame's OnEvent (label = the event); returns slashFn guarded
+--   guard.Install(eventFrame, slashFn, buttons) → wraps the frame's OnEvent (label = the event) and the OnClick of
+--                                      each button in the list (minimap, compartment…); returns slashFn guarded
 --   guard.Errors()                   → db.errors, newest first
 --   guard.Clear()
 --   guard.Page(left, right)          → the error page: list on the left, the chosen one to copy on the right
@@ -1078,7 +1334,15 @@ function P.Guard(addonName, db, opts)
 		end
 	end
 
-	function g.Install(eventFrame, slashFn)
+	function g.Install(eventFrame, slashFn, buttons)
+		for _, btn in ipairs(buttons or {}) do
+			if btn and btn.GetScript then
+				local onClick = btn:GetScript("OnClick")
+				if onClick then
+					btn:SetScript("OnClick", g.Wrap(onClick, btn.GetName and btn:GetName() or "click"))
+				end
+			end
+		end
 		if eventFrame and eventFrame.GetScript then
 			local onEvent = eventFrame:GetScript("OnEvent")
 			if onEvent then
