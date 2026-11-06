@@ -896,22 +896,36 @@ end
 -- the text. opts: role (font role), justify.
 function P.LinkText(parent, text, opts)
 	opts = opts or {}
-	local h = CreateFrame("SimpleHTML", nil, parent)
 	local font = P.fonts[opts.role or "body"] or P.fonts.body
-	if h.SetFontObject then
-		h:SetFontObject(font)
+	local ok, h = pcall(CreateFrame, "SimpleHTML", nil, parent)
+	if not ok or not h then
+		-- no SimpleHTML here: a plain label with the same small API (no tooltips over links)
+		local fs = P.Label(parent, text, opts.role, opts.justify)
+		fs:SetWordWrap(true)
+		fs.Fit = function(self)
+			if self.GetStringHeight then
+				self:SetHeight(math.max(1, self:GetStringHeight()))
+			end
+		end
+		return fs
 	end
-	if h.SetTextColor then
-		h:SetTextColor(P.INK[1], P.INK[2], P.INK[3])
+	-- SimpleHTML is a FontInstance, but some clients want the element ("p") first: try both ways
+	local function fontCall(method, ...)
+		local fn = h[method]
+		if not fn then
+			return
+		end
+		if not pcall(fn, h, ...) then
+			pcall(fn, h, "p", ...)
+		end
 	end
-	if h.SetJustifyH then
-		h:SetJustifyH(opts.justify or "LEFT")
-	end
-	h:SetHyperlinksEnabled(true)
+	fontCall("SetFontObject", font)
+	fontCall("SetTextColor", P.INK[1], P.INK[2], P.INK[3])
+	fontCall("SetJustifyH", opts.justify or "LEFT")
+	pcall(h.SetHyperlinksEnabled, h, true)
 	h:SetScript("OnHyperlinkEnter", function(self, link)
 		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-		local ok = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
-		if ok then
+		if pcall(GameTooltip.SetHyperlink, GameTooltip, link) then
 			GameTooltip:Show()
 		end
 	end)
@@ -928,17 +942,15 @@ function P.LinkText(parent, text, opts)
 		self.text = t or ""
 		-- SimpleHTML wants markup; "<" in plain text would be read as a tag
 		local safe = self.text:gsub("<", "&lt;")
-		setText(self, "<html><body><p>" .. safe .. "</p></body></html>")
+		pcall(setText, self, "<html><body><p>" .. safe .. "</p></body></html>")
 	end
 	function h:GetText()
 		return self.text or ""
 	end
 	function h:Fit()
-		if self.GetContentHeight then
-			local ch = self:GetContentHeight()
-			if ch and ch > 0 then
-				self:SetHeight(ch)
-			end
+		local okH, ch = pcall(self.GetContentHeight, self)
+		if okH and ch and ch > 0 then
+			self:SetHeight(ch)
 		end
 	end
 	h:SetText(text or "")
