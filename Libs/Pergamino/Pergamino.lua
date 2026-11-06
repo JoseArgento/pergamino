@@ -9,7 +9,7 @@
 -- No Blizzard frame templates: every piece is drawn here.
 
 local ADDON = ...
-local VERSION = 5
+local VERSION = 6
 
 if Pergamino and (Pergamino.VERSION or 0) >= VERSION then
 	return
@@ -866,6 +866,117 @@ end
 --   guard.Page(left, right)          → the error page: list on the left, the chosen one to copy on the right
 --                                      (with one parent, list above and text below); returns { list, area, Refresh }
 local GUARD_MAX, GUARD_LINES = 10, 6
+-- Links on parchment -------------------------------------------------------------------------------
+-- Item quality colours are made for a dark background: white, grey and bright green vanish on parchment.
+-- These are the same hues, darkened until they read as ink.
+P.QUALITY_INK = {
+	[0] = "ff6c4e31", -- poor: soft ink
+	[1] = "ff3a2313", -- common: ink
+	[2] = "ff1f6b2a", -- uncommon: moss
+	[3] = "ff1f4f9c", -- rare: deep blue
+	[4] = "ff6a2a8f", -- epic: plum
+	[5] = "ffb35a00", -- legendary: burnt orange
+	[6] = "ffa0741c", -- artifact: old gold
+	[7] = "ff2a7a7a", -- heirloom: teal
+}
+function P.QualityInk(quality)
+	return P.QUALITY_INK[quality] or P.QUALITY_INK[1]
+end
+
+-- A chat link coloured for the page: ref is "item:123" (or any |H ref), name the bracketed text.
+function P.RefLink(ref, name, quality)
+	if quality == nil and C_Item and C_Item.GetItemQualityByID and tostring(ref):match("^item:%d+$") then
+		quality = C_Item.GetItemQualityByID(ref)
+	end
+	return "|c" .. P.QualityInk(quality) .. "|H" .. ref .. "|h[" .. (name or ref) .. "]|h|r"
+end
+
+-- Text that may hold chat links, with the game's tooltip when the mouse is over one of them. A
+-- SimpleHTML frame (FontStrings never report hyperlinks). Width comes from the anchors; height follows
+-- the text. opts: role (font role), justify.
+function P.LinkText(parent, text, opts)
+	opts = opts or {}
+	local h = CreateFrame("SimpleHTML", nil, parent)
+	local font = P.fonts[opts.role or "body"] or P.fonts.body
+	if h.SetFontObject then
+		h:SetFontObject(font)
+	end
+	if h.SetTextColor then
+		h:SetTextColor(P.INK[1], P.INK[2], P.INK[3])
+	end
+	if h.SetJustifyH then
+		h:SetJustifyH(opts.justify or "LEFT")
+	end
+	h:SetHyperlinksEnabled(true)
+	h:SetScript("OnHyperlinkEnter", function(self, link)
+		GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+		local ok = pcall(GameTooltip.SetHyperlink, GameTooltip, link)
+		if ok then
+			GameTooltip:Show()
+		end
+	end)
+	h:SetScript("OnHyperlinkLeave", function()
+		GameTooltip:Hide()
+	end)
+	h:SetScript("OnHyperlinkClick", function(_, link, linkText)
+		if IsShiftKeyDown and IsShiftKeyDown() and ChatFrameUtil and ChatFrameUtil.InsertLink then
+			ChatFrameUtil.InsertLink(linkText or link)
+		end
+	end)
+	local setText = h.SetText
+	function h:SetText(t)
+		self.text = t or ""
+		-- SimpleHTML wants markup; "<" in plain text would be read as a tag
+		local safe = self.text:gsub("<", "&lt;")
+		setText(self, "<html><body><p>" .. safe .. "</p></body></html>")
+	end
+	function h:GetText()
+		return self.text or ""
+	end
+	function h:Fit()
+		if self.GetContentHeight then
+			local ch = self:GetContentHeight()
+			if ch and ch > 0 then
+				self:SetHeight(ch)
+			end
+		end
+	end
+	h:SetText(text or "")
+	return h
+end
+
+-- Shift-click on an item while one of these edit boxes has focus: the link goes to the box and the game
+-- does NOT open the stack-split dialog (that only happens when ChatFrameUtil.InsertLink returns false,
+-- which a post-hook cannot change). One wrapper for every addon that shares the lib: the newest copy
+-- installs it, older copies find it installed.
+P.linkSinks = P.linkSinks or {}
+function P.AcceptLinks(edit, onLink)
+	table.insert(P.linkSinks, { edit = edit, onLink = onLink })
+	if P.insertLinkWrapped or not (ChatFrameUtil and ChatFrameUtil.InsertLink) then
+		return
+	end
+	local orig = ChatFrameUtil.InsertLink
+	ChatFrameUtil.InsertLink = function(text)
+		if text then
+			for _, sink in ipairs(P.linkSinks) do
+				local e = sink.edit
+				if e and e.HasFocus and e:HasFocus() and (not e.IsVisible or e:IsVisible()) then
+					if sink.onLink then
+						sink.onLink(text)
+					elseif e.SetValue then
+						e:SetValue(text)
+					else
+						e:Insert(text)
+					end
+					return true
+				end
+			end
+		end
+		return orig(text)
+	end
+	P.insertLinkWrapped = true
+end
+
 function P.Guard(addonName, db, opts)
 	opts = opts or {}
 	db.errors = db.errors or {}

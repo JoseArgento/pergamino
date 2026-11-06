@@ -98,16 +98,16 @@ def test_textures_named_in_the_code_exist_and_are_powers_of_two():
 
 def test_a_newer_copy_wins_and_an_older_one_steps_aside(game):
     src = LIB.read_text(encoding="utf-8")
-    older = src.replace("local VERSION = 5", "local VERSION = 1")
+    older = src.replace("local VERSION = 6", "local VERSION = 1")
     game.load("OtherAddon", older)
     P = game.lua.globals().Pergamino
     assert (
-        P.VERSION == 5 and "TestAddon" in P.MEDIA
+        P.VERSION == 6 and "TestAddon" in P.MEDIA
     )  # the older copy did not replace it
-    newer = src.replace("local VERSION = 5", "local VERSION = 6")
+    newer = src.replace("local VERSION = 6", "local VERSION = 7")
     game.load("NewAddon", newer)
     P = game.lua.globals().Pergamino
-    assert P.VERSION == 6 and "NewAddon" in P.MEDIA
+    assert P.VERSION == 7 and "NewAddon" in P.MEDIA
 
 
 def test_book_has_two_pages_a_title_a_seal_and_bookmarks(game):
@@ -427,3 +427,45 @@ def test_guard_keeps_errors_says_so_once_and_shows_a_page(game):
     assert game.run("return MOCK.page.area.box._text") is not None
     game.run("MOCK.page.clear:GetScript('OnClick')()")
     assert game.run("return #MOCK.g.Errors(), MOCK.page.empty:IsShown()") == (0, True)
+
+
+def test_ref_links_use_ink_quality_colours(game):
+    # common (white) and poor (grey) are unreadable on parchment: they become ink and soft ink
+    assert game.run('return P.RefLink("item:2996", "Linen", 1)') == "|cff3a2313|Hitem:2996|h[Linen]|h|r"
+    assert game.run('return P.RefLink("item:1", "Junk", 0)') == "|cff6c4e31|Hitem:1|h[Junk]|h|r"
+    assert game.run('return P.RefLink("item:2", "Green", 2)') == "|cff1f6b2a|Hitem:2|h[Green]|h|r"
+    assert game.run('return P.RefLink("item:3", "Odd", 99)') == "|cff3a2313|Hitem:3|h[Odd]|h|r"
+
+
+def test_link_text_shows_the_tooltip_over_a_link(game):
+    game.run("""
+        MOCK.tips = {}
+        GameTooltip.SetHyperlink = function(_, link) table.insert(MOCK.tips, link) end
+        MOCK.lt = P.LinkText(UIParent, "trade for |cff3a2313|Hitem:2589|h[Wool]|h|r")
+    """)
+    assert game.run("return MOCK.lt:GetText()").startswith("trade for ")
+    assert game.run("return MOCK.lt._text").startswith("<html><body><p>trade for ")
+    game.run("MOCK.lt:GetScript('OnHyperlinkEnter')(MOCK.lt, 'item:2589')")
+    assert list(game.run("return MOCK.tips").values()) == ["item:2589"]
+    game.run("MOCK.lt:SetText('a < b')")
+    assert "&lt;" in game.run("return MOCK.lt._text")
+
+
+def test_accept_links_feeds_the_box_and_stops_the_stack_split(game):
+    # the game splits a stack only when ChatFrameUtil.InsertLink returns false; with a box of ours focused
+    # the wrapper takes the link and returns true
+    game.run("""
+        ChatFrameUtil = { InsertLink = function(text) MOCK.orig = text; return false end }
+        MOCK.box = P.Edit(UIParent, 200, {})
+        MOCK.got = nil
+        P.AcceptLinks(MOCK.box, function(text) MOCK.got = text end)
+    """)
+    assert game.run("return ChatFrameUtil.InsertLink('|Hitem:1|h[x]|h')") is False
+    assert game.m.orig == "|Hitem:1|h[x]|h" and game.run("return MOCK.got") is None
+    game.run("MOCK.box:SetFocus()")
+    assert game.run("return ChatFrameUtil.InsertLink('|Hitem:2|h[y]|h')") is True
+    assert game.run("return MOCK.got") == "|Hitem:2|h[y]|h"
+    # a second box registers without wrapping twice
+    game.run("MOCK.box2 = P.Edit(UIParent, 200, {}); P.AcceptLinks(MOCK.box2); MOCK.box:ClearFocus(); MOCK.box2:SetFocus()")
+    assert game.run("return ChatFrameUtil.InsertLink('|Hitem:3|h[z]|h')") is True
+    assert game.run("return MOCK.box2:GetText()") == "|Hitem:3|h[z]|h"
